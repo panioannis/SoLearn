@@ -15,6 +15,7 @@ utilize to create and use their own version of a name service of any kind.
 
 ```bash
 npm install @solana/spl-name-service
+npm install @irys/sdk
 ```
 
 ```bash
