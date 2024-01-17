@@ -10,7 +10,6 @@ import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
 
-
 import {
   createNameRegistry,
   deleteNameRegistry,
@@ -25,17 +24,16 @@ import {
 import Irys from "@irys/sdk";
 import type BigNumber from "bignumber.js";
 import type { UploadResponse } from "@irys/sdk/build/cjs/common/types";
-// import dotenv from "dotenv";
+import dotenv from "dotenv";
 
-// dotenv.config();
+dotenv.config();
 
 async function getIrys(): Promise<Irys> {
   const url = "https://devnet.irys.xyz";
   const providerUrl = "https://api.devnet.solana.com";
   const token = "solana";
-  // const privateKey = process.env.SOL_PRIVATE_KEY;
-  const privateKey =
-    "5QHEzgMurPHzFJD46e5fCfTi3y1H9uFgN5CxZxy7booShAtBN3CTf6TzHZPN2oXqjPMYJLHRAL4DxJqcyMnoJGog";
+  const privateKey = process.env.SOL_PRIVATE_KEY;
+  console.log("Solana privateKey: \n" + privateKey + '\n');
 
   const irys = new Irys({
     url: url, // URL of the node you want to connect to
