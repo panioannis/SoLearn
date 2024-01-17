@@ -105,7 +105,7 @@ async function uploadModel(fileToUpload: string, commit_name: string, ref_value:
 	return retval;
 };
 
-async function uploadData(dataToUpload: string): Promise<String | null> {
+async function uploadStringData(dataToUpload: string): Promise<String | null> {
 	const irys = await getIrys();
   let receipt: UploadResponse | null = null;
 	let retval: String | null = null;
@@ -119,6 +119,91 @@ async function uploadData(dataToUpload: string): Promise<String | null> {
 		console.log("Error uploading data ", e);
 	}
     return retval;
+};
+
+async function uploadProvFile(rootTxId: string, fileToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
+  const irys = await getIrys();
+  let receipt: UploadResponse | null = null;
+  let retval: String | null = null;
+  const tags = [
+		{ name: "Content-Type", value: "text/plain" },
+		{ name: "root-tx", value: rootTxId },
+	];
+
+  try {
+    receipt = await irys.uploadFile(fileToUpload, { tags });
+    console.log(`File uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
+    retval = receipt.id; 
+  } catch (e) {
+    console.log("Error uploading file ", e);
+  }
+
+  return retval;
+}
+
+async function uploadProvModel(rootTxId: string, fileToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
+	const irys = await getIrys();
+  let receipt: UploadResponse | null = null;
+  let retval: String | null = null;
+
+  const tags = [
+		{ name: "Content-Type", value: "text/plain" },
+		{ name: "root-tx", value: rootTxId },
+	];
+ 
+	try {
+		receipt = await irys.uploadFile(fileToUpload, { tags });
+		console.log(`File uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
+    retval = receipt.id; 
+	} catch (e) {
+		console.log("Error uploading file ", e);
+	}
+
+	return retval;
+};
+
+async function uploadProvStringData(rootTxId: string, dataToUpload: string): Promise<String | null> {
+	const irys = await getIrys();
+  let receipt: UploadResponse | null = null;
+	let retval: String | null = null;
+  
+  const tags = [
+		{ name: "Content-Type", value: "text/plain" },
+		{ name: "root-tx", value: rootTxId },
+	];
+	
+  try {
+		receipt = await irys.upload(dataToUpload, { tags });
+		console.log(`Data uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
+    retval = receipt.id; 
+	} catch (e) {
+		console.log("Error uploading data ", e);
+	}
+    return retval;
+};
+
+// Stores the root transaction and returns the transaction id
+const storeRoot = async (myData) => {
+	const irys = await getIrys();
+	const tags = [{ name: "Content-Type", value: "text/plain" }];
+ 
+	const tx = await irys.upload(myData, { tags });
+	return tx.id;
+};
+
+// Stores an "update" to the root transaction by creating
+// a new transaction and tying it back to the original using
+// the "root-id" metatag.
+const storeUpdate = async (rootTxId, myData) => {
+	const irys = await getIrys();
+ 
+	const tags = [
+		{ name: "Content-Type", value: "text/plain" },
+		{ name: "root-tx", value: rootTxId },
+	];
+ 
+	const tx = await irys.upload(myData, { tags });
+	return tx.id;
 };
 
 
@@ -185,8 +270,12 @@ describe('Name Service Program', async () => {
     nameAccount.owner.equals(owner.publicKey);
     expect(nameAccount.data?.length).to.eql(space);
   });
-  it('Update Name Registery', async () => {
-    const IRYS_ID = await uploadData("ResNet");
+  it('Update Name Registery Model 1', async () => {
+    const readAccount = await NameRegistryState.retrieve(connection, nameKey);
+    const prev_id = readAccount.data?.toString('utf8');
+    
+    const IRYS_ID = await uploadStringData(prev_id + "Model 1");
+    
     let data = Buffer.from("Nothing",'utf-8');
     if (IRYS_ID == null) {
       console.log("The string is null or undefined.");
@@ -207,6 +296,116 @@ describe('Name Service Program', async () => {
     console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
     nameAccount.data?.equals(data);
   });
+
+  it('Update Name Registery Model 2', async () => {
+    const readAccount = await NameRegistryState.retrieve(connection, nameKey);
+    const prev_id = readAccount.data?.toString('utf8');
+    
+    const IRYS_ID = await uploadStringData(prev_id + "Model 2");
+    
+    let data = Buffer.from("Nothing",'utf-8');
+    if (IRYS_ID == null) {
+      console.log("The string is null or undefined.");
+    } else {
+      console.log("The string is neither null nor undefined.");
+      data = Buffer.from(IRYS_ID,'utf-8');
+    }
+
+    console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    
+    const inst = await updateNameRegistryData(connection, name, 0, data);
+    const tx = new Transaction().add(inst);
+    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // console.log(nameAccount);
+    //console.log(JSON.stringify(nameAccount.data));
+    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+    nameAccount.data?.equals(data);
+  });
+
+  it('Update Name Registery Model 3', async () => {
+    const readAccount = await NameRegistryState.retrieve(connection, nameKey);
+    const prev_id = readAccount.data?.toString('utf8');
+    
+    const IRYS_ID = await uploadStringData(prev_id + "Model 3");
+    
+    let data = Buffer.from("Nothing",'utf-8');
+    if (IRYS_ID == null) {
+      console.log("The string is null or undefined.");
+    } else {
+      console.log("The string is neither null nor undefined.");
+      data = Buffer.from(IRYS_ID,'utf-8');
+    }
+
+    console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    
+    const inst = await updateNameRegistryData(connection, name, 0, data);
+    const tx = new Transaction().add(inst);
+    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // console.log(nameAccount);
+    //console.log(JSON.stringify(nameAccount.data));
+    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+    nameAccount.data?.equals(data);
+  });
+ 
+  it('Update Name Registery Model 4', async () => {
+    const readAccount = await NameRegistryState.retrieve(connection, nameKey);
+    const prev_id = readAccount.data?.toString('utf8');
+    
+    const IRYS_ID = await uploadIrysID(prev_id + "Model 4");
+    
+    let data = Buffer.from("Nothing",'utf-8');
+    if (IRYS_ID == null) {
+      console.log("The string is null or undefined.");
+    } else {
+      console.log("The string is neither null nor undefined.");
+      data = Buffer.from(IRYS_ID,'utf-8');
+    }
+
+    console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    
+    const inst = await updateNameRegistryData(connection, name, 0, data);
+    const tx = new Transaction().add(inst);
+    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // console.log(nameAccount);
+    //console.log(JSON.stringify(nameAccount.data));
+    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+    nameAccount.data?.equals(data);
+  });
+
+  it('Update Name Registery Model 5', async () => {
+    
+    const readAccount = await NameRegistryState.retrieve(connection, nameKey);
+    const prev_id = readAccount.data?.toString('utf8');
+    
+    const IRYS_ID = await uploadIrysID(prev_id + "Model 5");
+    
+    let data = Buffer.from("Nothing",'utf-8');
+    if (IRYS_ID == null) {
+      console.log("The string is null or undefined.");
+    } else {
+      console.log("The string is neither null nor undefined.");
+      data = Buffer.from(IRYS_ID,'utf-8');
+    }
+
+    console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    
+    const inst = await updateNameRegistryData(connection, name, 0, data);
+    const tx = new Transaction().add(inst);
+    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // console.log(nameAccount);
+    //console.log(JSON.stringify(nameAccount.data));
+    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+    nameAccount.data?.equals(data);
+  });
+
   // it('Transfer Name Ownership', async () => {
   //   const newOwner = Keypair.generate();
   //   const inst = await transferNameOwnership(
