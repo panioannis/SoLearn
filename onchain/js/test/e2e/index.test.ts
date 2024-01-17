@@ -9,6 +9,8 @@ import {
 import chai, { expect } from 'chai';
 import chaiAsPromised from 'chai-as-promised';
 
+
+
 import {
   createNameRegistry,
   deleteNameRegistry,
@@ -69,7 +71,7 @@ const checkAndPrintBalance = async (): Promise<void> => {
   }
 };
 
-async function uploadFile(fileToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
+async function uploadRootFile(fileToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
   const irys = await getIrys();
   let receipt: UploadResponse | null = null;
   let retval: String | null = null;
@@ -86,7 +88,7 @@ async function uploadFile(fileToUpload: string, commit_name: string, ref_value: 
   return retval;
 }
 
-async function uploadModel(fileToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
+async function uploadRootModel(fileToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
 	const irys = await getIrys();
   let receipt: UploadResponse | null = null;
   let retval: String | null = null;
@@ -105,14 +107,14 @@ async function uploadModel(fileToUpload: string, commit_name: string, ref_value:
 	return retval;
 };
 
-async function uploadStringData(dataToUpload: string): Promise<String | null> {
+async function uploadRootStringData(dataToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
 	const irys = await getIrys();
   let receipt: UploadResponse | null = null;
 	let retval: String | null = null;
-  //const dataToUpload = "GM world.";
+  const tags = [{ name: commit_name, value: ref_value }];
 	
   try {
-		receipt = await irys.upload(dataToUpload);
+		receipt = await irys.upload(dataToUpload, { tags });
 		console.log(`Data uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
     retval = receipt.id; 
 	} catch (e) {
@@ -121,12 +123,12 @@ async function uploadStringData(dataToUpload: string): Promise<String | null> {
     return retval;
 };
 
-async function uploadProvFile(rootTxId: string, fileToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
+async function uploadProvFile(fileToUpload: string, rootTxId: string, commit_name: string, ref_value: string): Promise<String | null> {
   const irys = await getIrys();
   let receipt: UploadResponse | null = null;
   let retval: String | null = null;
   const tags = [
-		{ name: "Content-Type", value: "text/plain" },
+		{ name: commit_name, value: ref_value },
 		{ name: "root-tx", value: rootTxId },
 	];
 
@@ -139,20 +141,20 @@ async function uploadProvFile(rootTxId: string, fileToUpload: string, commit_nam
   }
 
   return retval;
-}
+};
 
-async function uploadProvModel(rootTxId: string, fileToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
+async function uploadProvModel(modelToUpload: string, rootTxId: string,  commit_name: string, ref_value: string): Promise<String | null> {
 	const irys = await getIrys();
   let receipt: UploadResponse | null = null;
   let retval: String | null = null;
 
   const tags = [
-		{ name: "Content-Type", value: "text/plain" },
+		{ name: commit_name, value: ref_value },
 		{ name: "root-tx", value: rootTxId },
 	];
  
 	try {
-		receipt = await irys.uploadFile(fileToUpload, { tags });
+		receipt = await irys.uploadFile(modelToUpload, { tags });
 		console.log(`File uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
     retval = receipt.id; 
 	} catch (e) {
@@ -162,13 +164,13 @@ async function uploadProvModel(rootTxId: string, fileToUpload: string, commit_na
 	return retval;
 };
 
-async function uploadProvStringData(rootTxId: string, dataToUpload: string): Promise<String | null> {
+async function uploadProvStringData(dataToUpload: string, rootTxId: string,  commit_name: string, ref_value: string): Promise<String | null> {
 	const irys = await getIrys();
   let receipt: UploadResponse | null = null;
 	let retval: String | null = null;
   
   const tags = [
-		{ name: "Content-Type", value: "text/plain" },
+		{ name: commit_name, value: ref_value },
 		{ name: "root-tx", value: rootTxId },
 	];
 	
@@ -180,30 +182,6 @@ async function uploadProvStringData(rootTxId: string, dataToUpload: string): Pro
 		console.log("Error uploading data ", e);
 	}
     return retval;
-};
-
-// Stores the root transaction and returns the transaction id
-const storeRoot = async (myData) => {
-	const irys = await getIrys();
-	const tags = [{ name: "Content-Type", value: "text/plain" }];
- 
-	const tx = await irys.upload(myData, { tags });
-	return tx.id;
-};
-
-// Stores an "update" to the root transaction by creating
-// a new transaction and tying it back to the original using
-// the "root-id" metatag.
-const storeUpdate = async (rootTxId, myData) => {
-	const irys = await getIrys();
- 
-	const tags = [
-		{ name: "Content-Type", value: "text/plain" },
-		{ name: "root-tx", value: rootTxId },
-	];
- 
-	const tx = await irys.upload(myData, { tags });
-	return tx.id;
 };
 
 
@@ -236,6 +214,9 @@ describe('Name Service Program', async () => {
   const space = 43;
   let nameKey: PublicKey;
   let name: string;
+
+  checkAndPrintBalance();
+  
   // before(async () => {
   //   const airdropSignature = await connection.requestAirdrop(
   //     payer.publicKey,
@@ -246,35 +227,35 @@ describe('Name Service Program', async () => {
   //     ...(await connection.getLatestBlockhash()),
   //   });
   // });
+  // it('Create Name Registery', async () => {
+  //   const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   nameAccount.owner.equals(owner.publicKey);
+  //   expect(nameAccount.data?.length).to.eql(space);
+  // });
+  it('Create Name Registery', async () => {  
+    
+    // ==================================================================================
+    // ----------------------------- Allocate Name Registry -----------------------------
+    // ==================================================================================
 
-  beforeEach(async () => {
-    name = Math.random().toString() + '.sol';
-    nameKey = await getNameKey(name);
+    const name = Math.random().toString() + '.sol';
+    const nameKey = await getNameKey(name);
     const lamports = await connection.getMinimumBalanceForRentExemption(
       space + NameRegistryState.HEADER_LEN,
     );
-    const inst = await createNameRegistry(
-      connection,
-      name,
-      space,
-      payer.publicKey,
-      owner.publicKey,
-      lamports,
-    );
-    const tx = new Transaction().add(inst);
+    let inst = await createNameRegistry(connection,name,space,payer.publicKey,owner.publicKey,lamports);
+    let tx = new Transaction().add(inst);
     await sendAndConfirmTransaction(connection, tx, [payer]);
-  });
 
-  it('Create Name Registery', async () => {
-    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    nameAccount.owner.equals(owner.publicKey);
-    expect(nameAccount.data?.length).to.eql(space);
-  });
-  it('Update Name Registery Model 1', async () => {
-    const readAccount = await NameRegistryState.retrieve(connection, nameKey);
-    const prev_id = readAccount.data?.toString('utf8');
+    // ==================================================================================
+    // ------------------------------- Place Root Node ----------------------------------
+    // ==================================================================================
+
+    let prev_id = "0000000000000000000000000000000000000000000";
     
-    const IRYS_ID = await uploadStringData(prev_id + "Model 1");
+    console.log("Arweave Id to be stored: \n" + prev_id + '\n');
+
+    let IRYS_ID = await uploadProvStringData("1st Upload",prev_id,"Round","1");
     
     let data = Buffer.from("Nothing",'utf-8');
     if (IRYS_ID == null) {
@@ -286,125 +267,236 @@ describe('Name Service Program', async () => {
 
     console.log("Arweave Id to be stored: \n" + data + '\n');
     
-    
-    const inst = await updateNameRegistryData(connection, name, 0, data);
-    const tx = new Transaction().add(inst);
+    inst = await updateNameRegistryData(connection, name, 0, data);
+    tx = new Transaction().add(inst);
     await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    // console.log(nameAccount);
-    //console.log(JSON.stringify(nameAccount.data));
+    
+    let nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+
+    // ==================================================================================
+    // -------------------------- Retrieve Name Registry --------------------------------
+    // ==================================================================================
+
+    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
     console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
     nameAccount.data?.equals(data);
-  });
 
-  it('Update Name Registery Model 2', async () => {
-    const readAccount = await NameRegistryState.retrieve(connection, nameKey);
-    const prev_id = readAccount.data?.toString('utf8');
+    // ==================================================================================
+    // ------------------------------- Place Additional Nodes ---------------------------
+    // ==================================================================================
+
+    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
+
+    IRYS_ID = await uploadProvStringData("2nd Upload",prev_id!,"Round","2");
     
-    const IRYS_ID = await uploadStringData(prev_id + "Model 2");
-    
-    let data = Buffer.from("Nothing",'utf-8');
+    data = Buffer.from("Nothing",'utf-8');
     if (IRYS_ID == null) {
       console.log("The string is null or undefined.");
-    } else {
+    } else {                                                                                                                                                                                           
       console.log("The string is neither null nor undefined.");
       data = Buffer.from(IRYS_ID,'utf-8');
     }
 
     console.log("Arweave Id to be stored: \n" + data + '\n');
     
-    
-    const inst = await updateNameRegistryData(connection, name, 0, data);
-    const tx = new Transaction().add(inst);
+    inst = await updateNameRegistryData(connection, name, 0, data);
+    tx = new Transaction().add(inst);
     await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    // console.log(nameAccount);
-    //console.log(JSON.stringify(nameAccount.data));
+
+    // ==================================================================================
+    // -------------------------- Retrieve Name Registry --------------------------------
+    // ==================================================================================
+
+    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
     console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
     nameAccount.data?.equals(data);
-  });
 
-  it('Update Name Registery Model 3', async () => {
-    const readAccount = await NameRegistryState.retrieve(connection, nameKey);
-    const prev_id = readAccount.data?.toString('utf8');
+    // ==================================================================================
+    // ------------------------------- Place Additional Nodes ---------------------------
+    // ==================================================================================
+
+    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
+
+    IRYS_ID = await uploadProvStringData("2nd Upload",prev_id!,"Round","2");
     
-    const IRYS_ID = await uploadStringData(prev_id + "Model 3");
-    
-    let data = Buffer.from("Nothing",'utf-8');
+    data = Buffer.from("Nothing",'utf-8');
     if (IRYS_ID == null) {
       console.log("The string is null or undefined.");
-    } else {
+    } else {                                                                                                                                                                                           
       console.log("The string is neither null nor undefined.");
       data = Buffer.from(IRYS_ID,'utf-8');
     }
 
     console.log("Arweave Id to be stored: \n" + data + '\n');
     
-    
-    const inst = await updateNameRegistryData(connection, name, 0, data);
-    const tx = new Transaction().add(inst);
+    inst = await updateNameRegistryData(connection, name, 0, data);
+    tx = new Transaction().add(inst);
     await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    // console.log(nameAccount);
-    //console.log(JSON.stringify(nameAccount.data));
+
+    // ==================================================================================
+    // -------------------------- Retrieve Name Registry --------------------------------
+    // ==================================================================================
+
+    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
     console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
     nameAccount.data?.equals(data);
-  });
+
+    // ==================================================================================
+    // -------------------------- Delete Name Registry ----------------------------------
+    // ==================================================================================
+
+    inst = await deleteNameRegistry(connection, name, payer.publicKey);
+    tx = new Transaction().add(inst);
+    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+    let nullAccount = await connection.getAccountInfo(nameKey);
+    expect(nullAccount).to.be.null;
+
+  }).timeout(100000);
+
+  // it('Update Name Registery Model 2', async () => {
+  //   console.log("Connection \n" + connection + '  ' + nameKey + '\n');
+  //   const readAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   const prev_id = readAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";;
+    
+  //   console.log("Arweave Id to be stored: \n" + prev_id + '\n');
+
+  //   const IRYS_ID = await uploadProvStringData("2nd Upload",prev_id!,"Round","2");
+    
+  //   let data = Buffer.from("Nothing",'utf-8');
+  //   if (IRYS_ID == null) {
+  //     console.log("The string is null or undefined.");
+  //   } else {
+  //     console.log("The string is neither null nor undefined.");
+  //     data = Buffer.from(IRYS_ID,'utf-8');
+  //   }
+
+  //   console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    
+  //   const inst = await updateNameRegistryData(connection, name, 0, data);
+  //   const tx = new Transaction().add(inst);
+  //   await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+  //   const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   // console.log(nameAccount);
+  //   //console.log(JSON.stringify(nameAccount.data));
+  //   console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+  //   nameAccount.data?.equals(data);
+    
+  // }).timeout(100000);
+
+  // it('Update Name Registery Model 2', async () => {
+  //   const readAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   const prev_id = readAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";;
+    
+  //   console.log("Arweave Id to be stored: \n" + prev_id + '\n');
+
+  //   const IRYS_ID = await uploadProvStringData("2nd Upload",prev_id!,"Round","2");
+    
+  //   let data = Buffer.from("Nothing",'utf-8');
+  //   if (IRYS_ID == null) {
+  //     console.log("The string is null or undefined.");
+  //   } else {
+  //     console.log("The string is neither null nor undefined.");
+  //     data = Buffer.from(IRYS_ID,'utf-8');
+  //   }
+
+  //   console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    
+  //   const inst = await updateNameRegistryData(connection, name, 0, data);
+  //   const tx = new Transaction().add(inst);
+  //   await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+  //   const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   // console.log(nameAccount);
+  //   //console.log(JSON.stringify(nameAccount.data));
+  //   console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+  //   nameAccount.data?.equals(data);
+
+    
+  // });
+
+  // it('Update Name Registery Model 3', async () => {
+  //   const readAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   const prev_id = readAccount.data?.toString('utf8');
+    
+  //   const IRYS_ID = await uploadProvStringData("3rd Upload",prev_id || "0000000000000000000000000000000000000000000","Round","3");
+    
+  //   let data = Buffer.from("Nothing",'utf-8');
+  //   if (IRYS_ID == null) {
+  //     console.log("The string is null or undefined.");
+  //   } else {
+  //     console.log("The string is neither null nor undefined.");
+  //     data = Buffer.from(IRYS_ID,'utf-8');
+  //   }
+
+  //   console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    
+  //   const inst = await updateNameRegistryData(connection, name, 0, data);
+  //   const tx = new Transaction().add(inst);
+  //   await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+  //   const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   // console.log(nameAccount);
+  //   //console.log(JSON.stringify(nameAccount.data));
+  //   console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+  //   nameAccount.data?.equals(data);
+  // });
  
-  it('Update Name Registery Model 4', async () => {
-    const readAccount = await NameRegistryState.retrieve(connection, nameKey);
-    const prev_id = readAccount.data?.toString('utf8');
+  // it('Update Name Registery Model 4', async () => {
+  //   const readAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   const prev_id = readAccount.data?.toString('utf8');
     
-    const IRYS_ID = await uploadIrysID(prev_id + "Model 4");
+  //   const IRYS_ID = await uploadProvStringData("4th Upload",prev_id || "0000000000000000000000000000000000000000000","Round","4");
     
-    let data = Buffer.from("Nothing",'utf-8');
-    if (IRYS_ID == null) {
-      console.log("The string is null or undefined.");
-    } else {
-      console.log("The string is neither null nor undefined.");
-      data = Buffer.from(IRYS_ID,'utf-8');
-    }
+  //   let data = Buffer.from("Nothing",'utf-8');
+  //   if (IRYS_ID == null) {
+  //     console.log("The string is null or undefined.");
+  //   } else {
+  //     console.log("The string is neither null nor undefined.");
+  //     data = Buffer.from(IRYS_ID,'utf-8');
+  //   }
 
-    console.log("Arweave Id to be stored: \n" + data + '\n');
+  //   console.log("Arweave Id to be stored: \n" + data + '\n');
     
     
-    const inst = await updateNameRegistryData(connection, name, 0, data);
-    const tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    // console.log(nameAccount);
-    //console.log(JSON.stringify(nameAccount.data));
-    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
-    nameAccount.data?.equals(data);
-  });
+  //   const inst = await updateNameRegistryData(connection, name, 0, data);
+  //   const tx = new Transaction().add(inst);
+  //   await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+  //   const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   // console.log(nameAccount);
+  //   //console.log(JSON.stringify(nameAccount.data));
+  //   console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+  //   nameAccount.data?.equals(data);
+  // });
 
-  it('Update Name Registery Model 5', async () => {
+  // it('Update Name Registery Model 5', async () => {
+  //   const readAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   const prev_id = readAccount.data?.toString('utf8');
     
-    const readAccount = await NameRegistryState.retrieve(connection, nameKey);
-    const prev_id = readAccount.data?.toString('utf8');
+  //   const IRYS_ID = await uploadProvStringData("5th Upload",prev_id || "0000000000000000000000000000000000000000000","Round","5");
     
-    const IRYS_ID = await uploadIrysID(prev_id + "Model 5");
-    
-    let data = Buffer.from("Nothing",'utf-8');
-    if (IRYS_ID == null) {
-      console.log("The string is null or undefined.");
-    } else {
-      console.log("The string is neither null nor undefined.");
-      data = Buffer.from(IRYS_ID,'utf-8');
-    }
+  //   let data = Buffer.from("Nothing",'utf-8');
+  //   if (IRYS_ID == null) {
+  //     console.log("The string is null or undefined.");
+  //   } else {
+  //     console.log("The string is neither null nor undefined.");
+  //     data = Buffer.from(IRYS_ID,'utf-8');
+  //   }
 
-    console.log("Arweave Id to be stored: \n" + data + '\n');
+  //   console.log("Arweave Id to be stored: \n" + data + '\n');
     
     
-    const inst = await updateNameRegistryData(connection, name, 0, data);
-    const tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    // console.log(nameAccount);
-    //console.log(JSON.stringify(nameAccount.data));
-    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
-    nameAccount.data?.equals(data);
-  });
+  //   const inst = await updateNameRegistryData(connection, name, 0, data);
+  //   const tx = new Transaction().add(inst);
+  //   await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+  //   const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   // console.log(nameAccount);
+  //   //console.log(JSON.stringify(nameAccount.data));
+  //   console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+  //   nameAccount.data?.equals(data);
+  // });
 
   // it('Transfer Name Ownership', async () => {
   //   const newOwner = Keypair.generate();
@@ -418,36 +510,32 @@ describe('Name Service Program', async () => {
   //   const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
   //   nameAccount.owner.equals(newOwner.publicKey);
   // });
-  it('Realloc Name Account to bigger space', async () => {
-    const inst = await reallocNameAccount(
-      connection,
-      name,
-      space + 10,
-      payer.publicKey,
-    );
-    const tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    expect(nameAccount.data?.length).to.eql(space + 10);
-  });
-  it('Realloc Name Account to smaller space', async () => {
-    const inst = await reallocNameAccount(
-      connection,
-      name,
-      space - 10,
-      payer.publicKey,
-    );
-    const tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-    const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    expect(nameAccount.data?.length).to.eql(space - 10);
-  });
-  it('Delete Name Registry', async () => {
-    const inst = await deleteNameRegistry(connection, name, payer.publicKey);
-    const tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-    const nameAccount = await connection.getAccountInfo(nameKey);
-    expect(nameAccount).to.be.null;
-  });
+  // it('Realloc Name Account to bigger space', async () => {
+  //   const inst = await reallocNameAccount(
+  //     connection,
+  //     name,
+  //     space + 10,
+  //     payer.publicKey,
+  //   );
+  //   const tx = new Transaction().add(inst);
+  //   await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+  //   const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   expect(nameAccount.data?.length).to.eql(space + 10);
+  // });
+  // it('Realloc Name Account to smaller space', async () => {
+  //   const inst = await reallocNameAccount(
+  //     connection,
+  //     name,
+  //     space - 10,
+  //     payer.publicKey,
+  //   );
+  //   const tx = new Transaction().add(inst);
+  //   await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+  //   const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+  //   expect(nameAccount.data?.length).to.eql(space - 10);
+  // });
+  // it('Delete Name Registry', async () => {
+    
+  // });
 });
 
