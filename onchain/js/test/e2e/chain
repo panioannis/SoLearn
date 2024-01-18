@@ -27,7 +27,6 @@ import type { UploadResponse } from "@irys/sdk/build/cjs/common/types";
 import fetch from "node-fetch";
 import Query from "@irys/query";
 import dotenv from "dotenv";
-import { FilesManager } from 'turbodepot-node';
 
 // ============================================================================
 // https://docs.irys.xyz/hands-on/tutorials/provenance-chain
@@ -35,21 +34,6 @@ import { FilesManager } from 'turbodepot-node';
 // ============================================================================
 
 dotenv.config();
-
-const dateToHumanReadable = (date) => {
-	const options = {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		fractionalSecondDigits: 3, // milliseconds
-	};
- 
-	// Pass "undefined" to force the default local to be used for formatting
-	return date.toLocaleString(undefined, options);
-};
 
 // Query for all transactions tagged as having a root-tx matching ours
 // You could optionally expand on this by querying for the `owner` value
@@ -66,13 +50,13 @@ const getProveanceChainSDK = async (rootTxId: string): Promise<any[]>  => {
 		.search("irys:transactions")
 		.ids([rootTxId]);
   
-  //console.log("Data retrieved from Irys = " + rootTx + "\n");
+  console.log("Data retrieved from Irys = " + rootTx + "\n");
 
 	// Extract the id and timestamp and download the data payload
 	if (rootTx) {
 		const unixTimestamp = rootTx[0].timestamp;
 		const date = new Date(unixTimestamp);
-		const humanReadable = dateToHumanReadable(date); 
+		const humanReadable = date.toDateString(); 
  
 		const url = `https://gateway.irys.xyz/${rootTx[0].id}`;
 		const response = await fetch(url);
@@ -87,13 +71,13 @@ const getProveanceChainSDK = async (rootTxId: string): Promise<any[]>  => {
 		.search("irys:transactions")
 		.tags([{ name: "root-tx", values: [rootTxId] }]);
   
-  //console.log("Data retrieved from Irys = " + chain + "\n");
+  console.log("Data retrieved from Irys = " + chain + "\n");
 
 	// Iterate over entries
 	for (const item of chain) {
 		const unixTimestamp = item.timestamp;
 		const date = new Date(unixTimestamp);
-		const humanReadable = dateToHumanReadable(date);
+		const humanReadable = date.toDateString();
  
 		const url = `https://gateway.irys.xyz/${item.id}`;
 		const response = await fetch(url);
@@ -208,22 +192,11 @@ async function uploadProvFile(fileToUpload: string, rootTxId: string, commit_nam
   const irys = await getIrys();
   let receipt: UploadResponse | null = null;
   let retval: String | null = null;
-  // Get number of bytes to print predicted price! 
-
-  let filesManager = new FilesManager();
-  const numBytes = filesManager.getFileSize(fileToUpload);
-  const priceConverted = irys.utils.fromAtomic(numBytes);
-  console.log(`Uploading ${numBytes} bytes costs ${priceConverted}`);
-
-  // Write tags to file ( might remove later as they are only relevant in queries)
-
   const tags = [
 		{ name: commit_name, value: ref_value },
 		{ name: "root-tx", value: rootTxId },
 	];
- 
-  // Upload the file and return Irys id.
-  
+
   try {
     receipt = await irys.uploadFile(fileToUpload, { tags });
     console.log(`File uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
@@ -239,23 +212,12 @@ async function uploadProvModel(modelToUpload: string, rootTxId: string,  commit_
 	const irys = await getIrys();
   let receipt: UploadResponse | null = null;
   let retval: String | null = null;
-  
-  // Get number of bytes to print predicted price! 
-
-  let filesManager = new FilesManager();
-  const numBytes = filesManager.getFileSize(modelToUpload);
-  const priceConverted = irys.utils.fromAtomic(numBytes);
-  console.log(`Uploading ${numBytes} bytes costs ${priceConverted}`);
-
-  // Write tags to file ( might remove later as they are only relevant in queries)
 
   const tags = [
 		{ name: commit_name, value: ref_value },
 		{ name: "root-tx", value: rootTxId },
 	];
  
-  // Upload the file and return Irys id.
-
 	try {
 		receipt = await irys.uploadFile(modelToUpload, { tags });
 		console.log(`File uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
@@ -271,14 +233,6 @@ async function uploadProvStringData(dataToUpload: string, rootTxId: string,  com
 	const irys = await getIrys();
   let receipt: UploadResponse | null = null;
 	let retval: String | null = null;
-  
-  const numBytes = dataToUpload.length; // Number of bytes to check
-  //const priceAtomic = await irys.getPrice(numBytes);
- 
-    // Convert from atomic units to standard units
-  const priceConverted = irys.utils.fromAtomic(numBytes);
- 
-  console.log(`Uploading ${numBytes} bytes costs ${priceConverted}`);
   
   const tags = [
 		{ name: commit_name, value: ref_value },
@@ -409,11 +363,11 @@ describe('Name Service Program', async () => {
       data = Buffer.from(IRYS_ID,'utf-8');
     }
 
-    // console.log("Arweave Id to be stored: \n" + data + '\n');
+    console.log("Arweave Id to be stored: \n" + data + '\n');
     
-    // inst = await updateNameRegistryData(connection, name, 0, data);
-    // tx = new Transaction().add(inst);
-    // await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+    inst = await updateNameRegistryData(connection, name, 0, data);
+    tx = new Transaction().add(inst);
+    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
 
     // ==================================================================================
     // -------------------------- Retrieve Name Registry --------------------------------
@@ -442,9 +396,9 @@ describe('Name Service Program', async () => {
 
     console.log("Arweave Id to be stored: \n" + data + '\n');
     
-    // inst = await updateNameRegistryData(connection, name, 0, data);
-    // tx = new Transaction().add(inst);
-    // await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+    inst = await updateNameRegistryData(connection, name, 0, data);
+    tx = new Transaction().add(inst);
+    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
 
     // ==================================================================================
     // -------------------------- Retrieve Name Registry --------------------------------
@@ -454,12 +408,12 @@ describe('Name Service Program', async () => {
     console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
     nameAccount.data?.equals(data);
 
-    printProvenanceChainSDK(nameAccount.data?.toString('utf8')!);
-    // const url = `https://gateway.irys.xyz/${nameAccount.data?.toString('utf8')!}`;
-    // const response = await fetch(url);
-		// const dat = await response.text();
+    //printProvenanceChainSDK(nameAccount.data?.toString('utf8')!);
+    const url = `https://gateway.irys.xyz/${nameAccount.data?.toString('utf8')!}`;
+    const response = await fetch(url);
+		const dat = await response.text();
 
-    // console.log("Arweave Id to be stored: \n" + prev_id + '\n');
+    printProvenanceChainSDK(nameAccount.data?.toString('utf8')!);
 
     // ==================================================================================
     // -------------------------- Delete Name Registry ----------------------------------
