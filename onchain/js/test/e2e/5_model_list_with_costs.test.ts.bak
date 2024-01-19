@@ -48,82 +48,6 @@ const url = "https://api.devnet.solana.com";
 // You could optionally expand on this by querying for the `owner` value
 // and making sure it matches the wallet address used to upload
 // the original transactions.
-const myProvenanceChain = async (rootTxId: string): Promise<any[]>  => {
-	const provenanceChainData: any[] = [];
- 
-	let  url = `https://gateway.irys.xyz/${rootTxId}`;
-	let  response = await fetch(url);
-	let  data = await response.text();
-  
-  console.log("The data retrieved is" + data + "\n");
-
-  let resultArray: string[] = data.split(" || ");
-
-  provenanceChainData.push(resultArray[0]);
-  console.log("The Model retrieved is" + resultArray[0] + "\n");
-
-  while (resultArray[1]!== "0000000000000000000000000000000000000000000") {
-
-    url = `https://gateway.irys.xyz/${resultArray[1]}`;
-    response = await fetch(url);
-    const data = await response.text();
-      
-    console.log("The data retrieved is" + data + "\n");
-
-    resultArray  = data.split(" || ");
-
-    provenanceChainData.push(resultArray[0]);
-    console.log("The Model retrieved is" + resultArray[0] + "\n");
-
-  }
-  //return provenanceChainData;
-  //const provenanceEntry = { Date: humanReadable, Data: humanReadable };
-
-  //provenanceChainData.push(provenanceEntry);
-
-  // //console.log("Data retrieved from Irys = " + rootTx + "\n");
-
-	// // Extract the id and timestamp and download the data payload
-	// if (rootTx) {
-	// 	const unixTimestamp = rootTx[0].timestamp;
-	// 	const date = new Date(unixTimestamp);
-		
-  //   const humanReadable = dateToHumanReadable(date);
- 
-	// 	const url = `https://gateway.irys.xyz/${rootTx[0].id}`;
-	// 	const response = await fetch(url);
-	// 	const data = await response.text();
- 
-	// 	const provenanceEntry = { Date: humanReadable, Data: humanReadable };
-  //   //const provenanceEntry = { Date: humanReadable, Data: data };
-	// 	provenanceChainData.push(provenanceEntry);
-	// }
- 
-	// // Now, get the provenance chain
-	// const chain = await myQuery
-	// 	.search("irys:transactions")
-	// 	.tags([{ name: "root-tx", values: [rootTxId] }]);
-  
-  // //console.log("Data retrieved from Irys = " + chain + "\n");
-
-	// // Iterate over entries
-	// for (const item of chain) {
-	// 	const unixTimestamp = item.timestamp;
-	// 	const date = new Date(unixTimestamp);
-    
-  //   const humanReadable = dateToHumanReadable(date);
- 
-	// 	const url = `https://gateway.irys.xyz/${item.id}`;
-	// 	const response = await fetch(url);
-	// 	const data = await response.text();
- 
-	// 	const provenanceEntry = { Date: humanReadable, Data: humanReadable };
-  //   //const provenanceEntry = { Date: humanReadable, Data: data };
-	// 	provenanceChainData.push(provenanceEntry);
-	// }
-	return provenanceChainData;
-};
-
 const getProveanceChainSDK = async (rootTxId: string): Promise<any[]>  => {
 	const provenanceChainData: any[] = [];
  
@@ -206,7 +130,7 @@ async function getIrys(): Promise<Irys> {
   const providerUrl = "https://api.devnet.solana.com";
   const token = "solana";
   const privateKey = process.env.SOL_PRIVATE_KEY;
-  //console.log("Solana privateKey: \n" + privateKey + '\n');
+  console.log("Solana privateKey: \n" + privateKey + '\n');
 
   const irys = new Irys({
     url: url, // URL of the node you want to connect to
@@ -678,10 +602,10 @@ describe('Name Service Program', async () => {
     console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
     nameAccount.data?.equals(data);
 
-    await printProvenanceChainSDK(rootModelTxId as string);
-    await printProvenanceChainSDK(rootNodeTxId as string);
+    printProvenanceChainSDK(rootModelTxId as string);
+    printProvenanceChainSDK(rootNodeTxId as string);
 
-    await myProvenanceChain(nameAccount.data?.toString('utf8')!);
+    //myProvenanceChain(nameAccount.data?.equals(data));
     // const url = `https://gateway.irys.xyz/${nameAccount.data?.toString('utf8')!}`;
     // const response = await fetch(url);
 		// const dat = await response.text();
