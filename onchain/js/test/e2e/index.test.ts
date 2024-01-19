@@ -28,6 +28,7 @@ import fetch from "node-fetch";
 import Query from "@irys/query";
 import dotenv from "dotenv";
 import fs from "fs";
+import readdir from "fs";
 
 
 // ============================================================================
@@ -505,200 +506,273 @@ describe('Name Service Program', async () => {
     let inst = await createNameRegistry(connection,name,space,payer.publicKey,owner.publicKey,lamports);
     let tx = new Transaction().add(inst);
     await sendAndConfirmTransaction(connection, tx, [payer]);
-
+  
     // ==================================================================================
     // ------------------------------- Place Root Node ----------------------------------
     // ==================================================================================
 
-    let prev_id = "0000000000000000000000000000000000000000000";
+    const directoryPath = '../models/';  
+    try {  
+      const files = await fs.promises.readdir(directoryPath);
+      console.log(directoryPath+files[0]);
+
+      let prev_id = "0000000000000000000000000000000000000000000";
     
-    console.log("Arweave Id to be stored: \n" + prev_id + '\n');
+      console.log("Arweave Id to be stored: \n" + prev_id + '\n');
+  
+      let modelId = await uploadProvModel(directoryPath+files[0],prev_id,"Content-Type","text/plain");
+      
+      let rootModelTxId = modelId; 
+  
+      let nodeId = await uploadProvListNode(modelId as string, prev_id, prev_id,"Content-Type","text/plain");
+  
+      let rootNodeTxId = nodeId;  
+  
+      let data = Buffer.from("Nothing",'utf-8');
+      if (nodeId == null) {
+        console.log("The string is null or undefined.");
+      } else {
+        console.log("The string is neither null nor undefined.");
+        data = Buffer.from(nodeId,'utf-8');
+      }
+  
+      console.log("Arweave Id to be stored: \n" + data + '\n');
+      
+      inst = await updateNameRegistryData(connection, name, 0, data);
+      tx = new Transaction().add(inst);
+      await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+      
+      let nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+      
+      for (const file of files.slice(1)) {
+        console.log(directoryPath+file);
+        // ==================================================================================
+        // -------------------------- Retrieve Name Registry --------------------------------
+        // ==================================================================================
 
-    let modelId = await uploadProvModel("../models/model_1.pth",prev_id,"Content-Type","text/plain");
+        nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+        console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+        nameAccount.data?.equals(data);
+
+        // ==================================================================================
+        // ------------------------------- Place Additional Nodes ---------------------------
+        // ==================================================================================
+
+        nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+        prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
+
+        modelId = await uploadProvModel(directoryPath+file,rootModelTxId as string,"Content-Type","text/plain");
+        
+        nodeId = await uploadProvListNode(modelId as string, prev_id, rootNodeTxId as string,"Content-Type","text/plain");
+
+        data = Buffer.from("Nothing",'utf-8');
+        if (nodeId == null) {
+          console.log("The string is null or undefined.");
+        } else {
+          console.log("The string is neither null nor undefined.");
+          data = Buffer.from(nodeId,'utf-8');
+        }
+
+        console.log("Arweave Id to be stored: \n" + data + '\n');
+        
+        inst = await updateNameRegistryData(connection, name, 0, data);
+        tx = new Transaction().add(inst);
+        await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+      }
+      
+      // // ==================================================================================
+      // // -------------------------- Retrieve Name Registry --------------------------------
+      // // ==================================================================================
+
+      nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+      console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+      nameAccount.data?.equals(data);
+  
+      await printProvenanceChainSDK(rootModelTxId as string);
+      await printProvenanceChainSDK(rootNodeTxId as string);
+  
+      await myProvenanceChain(nameAccount.data?.toString('utf8')!);
+      // const url = `https://gateway.irys.xyz/${nameAccount.data?.toString('utf8')!}`;
+      // const response = await fetch(url);
+      // const dat = await response.text();
+  
+      // console.log("Arweave Id to be stored: \n" + prev_id + '\n');
+  
+      // ==================================================================================
+      // -------------------------- Delete Name Registry ----------------------------------
+      // ==================================================================================
+  
+      inst = await deleteNameRegistry(connection, name, payer.publicKey);
+      tx = new Transaction().add(inst);
+      await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+      let nullAccount = await connection.getAccountInfo(nameKey);
+      expect(nullAccount).to.be.null;
+    } catch (err) {
+      console.error('Error reading directory:', err);
+    }   
+    // let prev_id = "0000000000000000000000000000000000000000000";
     
-    let rootModelTxId = modelId; 
-
-    let nodeId = await uploadProvListNode(modelId as string, prev_id, prev_id,"Content-Type","text/plain");
-
-    let rootNodeTxId = nodeId;  
-
-    let data = Buffer.from("Nothing",'utf-8');
-    if (nodeId == null) {
-      console.log("The string is null or undefined.");
-    } else {
-      console.log("The string is neither null nor undefined.");
-      data = Buffer.from(nodeId,'utf-8');
-    }
-
-    console.log("Arweave Id to be stored: \n" + data + '\n');
-    
-    inst = await updateNameRegistryData(connection, name, 0, data);
-    tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-    
-    let nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-
-    // ==================================================================================
-    // -------------------------- Retrieve Name Registry --------------------------------
-    // ==================================================================================
-
-    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
-    nameAccount.data?.equals(data);
-
-    // ==================================================================================
-    // ------------------------------- Place Additional Nodes ---------------------------
-    // ==================================================================================
-
-    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
-
-    modelId = await uploadProvModel("../models/model_2.pth",rootModelTxId as string,"Content-Type","text/plain");
-    
-    nodeId = await uploadProvListNode(modelId as string, prev_id, rootNodeTxId as string,"Content-Type","text/plain");
-
-    data = Buffer.from("Nothing",'utf-8');
-    if (nodeId == null) {
-      console.log("The string is null or undefined.");
-    } else {
-      console.log("The string is neither null nor undefined.");
-      data = Buffer.from(nodeId,'utf-8');
-    }
-
-    console.log("Arweave Id to be stored: \n" + data + '\n');
-    
-    inst = await updateNameRegistryData(connection, name, 0, data);
-    tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-
-    // ==================================================================================
-    // -------------------------- Retrieve Name Registry --------------------------------
-    // ==================================================================================
-
-    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
-    nameAccount.data?.equals(data);
-
-    // ==================================================================================
-    // ------------------------------- Place Additional Nodes ---------------------------
-    // ==================================================================================
-
-    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
-
-    modelId = await uploadProvModel("../models/model_3.pth",rootModelTxId as string,"Content-Type","text/plain");
-    
-    nodeId = await uploadProvListNode(modelId as string, prev_id, rootNodeTxId as string,"Content-Type","text/plain");
-
-    data = Buffer.from("Nothing",'utf-8');
-    if (nodeId == null) {
-      console.log("The string is null or undefined.");
-    } else {
-      console.log("The string is neither null nor undefined.");
-      data = Buffer.from(nodeId,'utf-8');
-    }
-
-    console.log("Arweave Id to be stored: \n" + data + '\n');
-    
-    inst = await updateNameRegistryData(connection, name, 0, data);
-    tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-
-    // ==================================================================================
-    // -------------------------- Retrieve Name Registry --------------------------------
-    // ==================================================================================
-
-    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
-    nameAccount.data?.equals(data);
-
-    // ==================================================================================
-    // ------------------------------- Place Additional Nodes ---------------------------
-    // ==================================================================================
-
-    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
-
-    modelId = await uploadProvModel("../models/model_2.pth",rootModelTxId as string,"Content-Type","text/plain");
-    
-    nodeId = await uploadProvListNode(modelId as string, prev_id, rootNodeTxId as string,"Content-Type","text/plain");
-
-    data = Buffer.from("Nothing",'utf-8');
-    if (nodeId == null) {
-      console.log("The string is null or undefined.");
-    } else {
-      console.log("The string is neither null nor undefined.");
-      data = Buffer.from(nodeId,'utf-8');
-    }
-
-    console.log("Arweave Id to be stored: \n" + data + '\n');
-    
-    inst = await updateNameRegistryData(connection, name, 0, data);
-    tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-
-    // ==================================================================================
-    // -------------------------- Retrieve Name Registry --------------------------------
-    // ==================================================================================
-
-    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
-    nameAccount.data?.equals(data);
-
-    // ==================================================================================
-    // ------------------------------- Place Additional Nodes ---------------------------
-    // ==================================================================================
-
-    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
-
-    modelId = await uploadProvModel("../models/model_5.pth",rootModelTxId as string,"Content-Type","text/plain");
-    
-    nodeId = await uploadProvListNode(modelId as string, prev_id, rootNodeTxId as string,"Content-Type","text/plain");
-
-    data = Buffer.from("Nothing",'utf-8');
-    if (nodeId == null) {
-      console.log("The string is null or undefined.");
-    } else {
-      console.log("The string is neither null nor undefined.");
-      data = Buffer.from(nodeId,'utf-8');
-    }
-
-    console.log("Arweave Id to be stored: \n" + data + '\n');
-    
-    inst = await updateNameRegistryData(connection, name, 0, data);
-    tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-
-    // ==================================================================================
-    // -------------------------- Retrieve Name Registry --------------------------------
-    // ==================================================================================
-
-    nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
-    nameAccount.data?.equals(data);
-
-    await printProvenanceChainSDK(rootModelTxId as string);
-    await printProvenanceChainSDK(rootNodeTxId as string);
-
-    await myProvenanceChain(nameAccount.data?.toString('utf8')!);
-    // const url = `https://gateway.irys.xyz/${nameAccount.data?.toString('utf8')!}`;
-    // const response = await fetch(url);
-		// const dat = await response.text();
-
     // console.log("Arweave Id to be stored: \n" + prev_id + '\n');
 
-    // ==================================================================================
-    // -------------------------- Delete Name Registry ----------------------------------
-    // ==================================================================================
-
-    inst = await deleteNameRegistry(connection, name, payer.publicKey);
-    tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-    let nullAccount = await connection.getAccountInfo(nameKey);
-    expect(nullAccount).to.be.null;
-
+    // let modelId = await uploadProvModel("../models/model_1.pth",prev_id,"Content-Type","text/plain");
     
+    // let rootModelTxId = modelId; 
+
+    // let nodeId = await uploadProvListNode(modelId as string, prev_id, prev_id,"Content-Type","text/plain");
+
+    // let rootNodeTxId = nodeId;  
+
+    // let data = Buffer.from("Nothing",'utf-8');
+    // if (nodeId == null) {
+    //   console.log("The string is null or undefined.");
+    // } else {
+    //   console.log("The string is neither null nor undefined.");
+    //   data = Buffer.from(nodeId,'utf-8');
+    // }
+
+    // console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    // inst = await updateNameRegistryData(connection, name, 0, data);
+    // tx = new Transaction().add(inst);
+    // await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+    
+    // let nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+
+    // // ==================================================================================
+    // // -------------------------- Retrieve Name Registry --------------------------------
+    // // ==================================================================================
+
+    // nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+    // nameAccount.data?.equals(data);
+
+    // // ==================================================================================
+    // // ------------------------------- Place Additional Nodes ---------------------------
+    // // ==================================================================================
+
+    // nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
+
+    // modelId = await uploadProvModel("../models/model_2.pth",rootModelTxId as string,"Content-Type","text/plain");
+    
+    // nodeId = await uploadProvListNode(modelId as string, prev_id, rootNodeTxId as string,"Content-Type","text/plain");
+
+    // data = Buffer.from("Nothing",'utf-8');
+    // if (nodeId == null) {
+    //   console.log("The string is null or undefined.");
+    // } else {
+    //   console.log("The string is neither null nor undefined.");
+    //   data = Buffer.from(nodeId,'utf-8');
+    // }
+
+    // console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    // inst = await updateNameRegistryData(connection, name, 0, data);
+    // tx = new Transaction().add(inst);
+    // await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+
+    // // ==================================================================================
+    // // -------------------------- Retrieve Name Registry --------------------------------
+    // // ==================================================================================
+
+    // nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+    // nameAccount.data?.equals(data);
+
+    // // ==================================================================================
+    // // ------------------------------- Place Additional Nodes ---------------------------
+    // // ==================================================================================
+
+    // nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
+
+    // modelId = await uploadProvModel("../models/model_3.pth",rootModelTxId as string,"Content-Type","text/plain");
+    
+    // nodeId = await uploadProvListNode(modelId as string, prev_id, rootNodeTxId as string,"Content-Type","text/plain");
+
+    // data = Buffer.from("Nothing",'utf-8');
+    // if (nodeId == null) {
+    //   console.log("The string is null or undefined.");
+    // } else {
+    //   console.log("The string is neither null nor undefined.");
+    //   data = Buffer.from(nodeId,'utf-8');
+    // }
+
+    // console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    // inst = await updateNameRegistryData(connection, name, 0, data);
+    // tx = new Transaction().add(inst);
+    // await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+
+    // // ==================================================================================
+    // // -------------------------- Retrieve Name Registry --------------------------------
+    // // ==================================================================================
+
+    // nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+    // nameAccount.data?.equals(data);
+
+    // // ==================================================================================
+    // // ------------------------------- Place Additional Nodes ---------------------------
+    // // ==================================================================================
+
+    // nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
+
+    // modelId = await uploadProvModel("../models/model_2.pth",rootModelTxId as string,"Content-Type","text/plain");
+    
+    // nodeId = await uploadProvListNode(modelId as string, prev_id, rootNodeTxId as string,"Content-Type","text/plain");
+
+    // data = Buffer.from("Nothing",'utf-8');
+    // if (nodeId == null) {
+    //   console.log("The string is null or undefined.");
+    // } else {
+    //   console.log("The string is neither null nor undefined.");
+    //   data = Buffer.from(nodeId,'utf-8');
+    // }
+
+    // console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    // inst = await updateNameRegistryData(connection, name, 0, data);
+    // tx = new Transaction().add(inst);
+    // await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+
+    // // ==================================================================================
+    // // -------------------------- Retrieve Name Registry --------------------------------
+    // // ==================================================================================
+
+    // nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
+    // nameAccount.data?.equals(data);
+
+    // // ==================================================================================
+    // // ------------------------------- Place Additional Nodes ---------------------------
+    // // ==================================================================================
+
+    // nameAccount = await NameRegistryState.retrieve(connection, nameKey);
+    // prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
+
+    // modelId = await uploadProvModel("../models/model_5.pth",rootModelTxId as string,"Content-Type","text/plain");
+    
+    // nodeId = await uploadProvListNode(modelId as string, prev_id, rootNodeTxId as string,"Content-Type","text/plain");
+
+    // data = Buffer.from("Nothing",'utf-8');
+    // if (nodeId == null) {
+    //   console.log("The string is null or undefined.");
+    // } else {
+    //   console.log("The string is neither null nor undefined.");
+    //   data = Buffer.from(nodeId,'utf-8');
+    // }
+
+    // console.log("Arweave Id to be stored: \n" + data + '\n');
+    
+    // inst = await updateNameRegistryData(connection, name, 0, data);
+    // tx = new Transaction().add(inst);
+    // await sendAndConfirmTransaction(connection, tx, [payer, owner]);
+
+    // ==================================================================================
+    // -------------------------- Retrieve Name Registry --------------------------------
+    // ==================================================================================
 
   }).timeout(1000000);
 
