@@ -11,30 +11,20 @@ import chaiAsPromised from 'chai-as-promised';
 
 
 import {
-  createNameRegistry,
-  deleteNameRegistry,
-  getHashedName,
-  getNameAccountKey,
-  NameRegistryState,
-  reallocNameAccount,
-  transferNameOwnership,
-  updateNameRegistryData,
+  createModelRegistry,
+  deleteModelRegistry,
+  updateModelRegistry,
+  retrieveModelRegistry,
+  reallocateModelRegistry,
+  transferModelRegistry,
+  getProvenanceModelChainList,
+  printProvenanceChainSDK,
+  checkAndPrintBalance,
+  uploadModelUpdate
 } from '../../src';
 
-import Irys from "@irys/sdk";
-import type BigNumber from "bignumber.js";
-import type { UploadResponse } from "@irys/sdk/build/cjs/common/types";
-import fetch from "node-fetch";
-import Query from "@irys/query";
 import dotenv from "dotenv";
-import fs from "fs";
-
-
-// ============================================================================
-// https://docs.irys.xyz/hands-on/tutorials/provenance-chain
-// https://docs.irys.xyz/developer-docs/querying/query-package
-// ============================================================================
-
+import * as net from 'net';
 
 chai.use(chaiAsPromised);
 
@@ -44,408 +34,20 @@ chai.use(chaiAsPromised);
 dotenv.config();
 const url = "https://api.devnet.solana.com";
 
-// Query for all transactions tagged as having a root-tx matching ours
-// You could optionally expand on this by querying for the `owner` value
-// and making sure it matches the wallet address used to upload
-// the original transactions.
-const myProvenanceChain = async (rootTxId: string): Promise<any[]>  => {
-	const provenanceChainData: any[] = [];
- 
-	let  url = `https://gateway.irys.xyz/${rootTxId}`;
-	let  response = await fetch(url);
-	let  data = await response.text();
-  
-  console.log("The data retrieved is" + data + "\n");
+// Server configuration for Connection to server
+const host = '127.0.0.1';
+const port = 12345;
 
-  let resultArray: string[] = data.split(" || ");
+// ============================================================================
+// https://docs.irys.xyz/hands-on/tutorials/provenance-chain
+// https://docs.irys.xyz/developer-docs/querying/query-package
+// ============================================================================
 
-  provenanceChainData.push(resultArray[0]);
-  console.log("The Model retrieved is" + resultArray[0] + "\n");
+// ============================================================================
+// https://github.com/adap/flower/blob/main/examples/flower-in-30-minutes/tutorial.ipynb
+// https://flower.dev/docs/framework/tutorial-series-get-started-with-flower-pytorch.html
+// ============================================================================
 
-  while (resultArray[1]!== "0000000000000000000000000000000000000000000") {
-
-    url = `https://gateway.irys.xyz/${resultArray[1]}`;
-    response = await fetch(url);
-    const data = await response.text();
-      
-    console.log("The data retrieved is" + data + "\n");
-
-    resultArray  = data.split(" || ");
-
-    provenanceChainData.push(resultArray[0]);
-    console.log("The Model retrieved is" + resultArray[0] + "\n");
-
-  }
-  //return provenanceChainData;
-  //const provenanceEntry = { Date: humanReadable, Data: humanReadable };
-
-  //provenanceChainData.push(provenanceEntry);
-
-  // //console.log("Data retrieved from Irys = " + rootTx + "\n");
-
-	// // Extract the id and timestamp and download the data payload
-	// if (rootTx) {
-	// 	const unixTimestamp = rootTx[0].timestamp;
-	// 	const date = new Date(unixTimestamp);
-		
-  //   const humanReadable = dateToHumanReadable(date);
- 
-	// 	const url = `https://gateway.irys.xyz/${rootTx[0].id}`;
-	// 	const response = await fetch(url);
-	// 	const data = await response.text();
- 
-	// 	const provenanceEntry = { Date: humanReadable, Data: humanReadable };
-  //   //const provenanceEntry = { Date: humanReadable, Data: data };
-	// 	provenanceChainData.push(provenanceEntry);
-	// }
- 
-	// // Now, get the provenance chain
-	// const chain = await myQuery
-	// 	.search("irys:transactions")
-	// 	.tags([{ name: "root-tx", values: [rootTxId] }]);
-  
-  // //console.log("Data retrieved from Irys = " + chain + "\n");
-
-	// // Iterate over entries
-	// for (const item of chain) {
-	// 	const unixTimestamp = item.timestamp;
-	// 	const date = new Date(unixTimestamp);
-    
-  //   const humanReadable = dateToHumanReadable(date);
- 
-	// 	const url = `https://gateway.irys.xyz/${item.id}`;
-	// 	const response = await fetch(url);
-	// 	const data = await response.text();
- 
-	// 	const provenanceEntry = { Date: humanReadable, Data: humanReadable };
-  //   //const provenanceEntry = { Date: humanReadable, Data: data };
-	// 	provenanceChainData.push(provenanceEntry);
-	// }
-	return provenanceChainData;
-};
-
-const getProveanceChainSDK = async (rootTxId: string): Promise<any[]>  => {
-	const provenanceChainData: any[] = [];
- 
-	// Connect to a Query object
-	const myQuery = new Query({ url: "https://devnet.irys.xyz/graphql" });
- 
-	// First, get the root TX
-	const rootTx = await myQuery
-		.search("irys:transactions")
-		.ids([rootTxId]);
-  
-  //console.log("Data retrieved from Irys = " + rootTx + "\n");
-
-	// Extract the id and timestamp and download the data payload
-	if (rootTx) {
-		const unixTimestamp = rootTx[0].timestamp;
-		const date = new Date(unixTimestamp);
-		
-    const humanReadable = dateToHumanReadable(date);
- 
-		const url = `https://gateway.irys.xyz/${rootTx[0].id}`;
-		const response = await fetch(url);
-		const data = await response.text();
- 
-		const provenanceEntry = { Date: humanReadable, Data: humanReadable };
-    //const provenanceEntry = { Date: humanReadable, Data: data };
-		provenanceChainData.push(provenanceEntry);
-	}
- 
-	// Now, get the provenance chain
-	const chain = await myQuery
-		.search("irys:transactions")
-		.tags([{ name: "root-tx", values: [rootTxId] }]);
-  
-  //console.log("Data retrieved from Irys = " + chain + "\n");
-
-	// Iterate over entries
-	for (const item of chain) {
-		const unixTimestamp = item.timestamp;
-		const date = new Date(unixTimestamp);
-    
-    const humanReadable = dateToHumanReadable(date);
- 
-		const url = `https://gateway.irys.xyz/${item.id}`;
-		const response = await fetch(url);
-		const data = await response.text();
- 
-		const provenanceEntry = { Date: humanReadable, Data: humanReadable };
-    //const provenanceEntry = { Date: humanReadable, Data: data };
-		provenanceChainData.push(provenanceEntry);
-	}
-	return provenanceChainData;
-};
-
-// Print the full provenance chain in a table
-const printProvenanceChainSDK = async (rootTxId: string): Promise<void> => {
-	const provenanceChainData = await getProveanceChainSDK(rootTxId);
-	console.table(provenanceChainData);
-};
-
-// Helper function, takes a Date object and returns a human readable string
-// showing date, month, year and time accurate to the millisecond
-const dateToHumanReadable = (date) => {
-	const options = {
-		year: "numeric",
-		month: "2-digit",
-		day: "2-digit",
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		fractionalSecondDigits: 3, // milliseconds
-	};
- 
-	// Pass "undefined" to force the default local to be used for formatting
-	return date.toLocaleString(undefined, options);
-};
-
-async function getIrys(): Promise<Irys> {
-  const url = "https://devnet.irys.xyz";
-  const providerUrl = "https://api.devnet.solana.com";
-  const token = "solana";
-  const privateKey = process.env.SOL_PRIVATE_KEY;
-  //console.log("Solana privateKey: \n" + privateKey + '\n');
-
-  const irys = new Irys({
-    url: url, // URL of the node you want to connect to
-    token: token, // Token used for payment
-    key: privateKey, // ETH or SOL private key
-    config: { providerUrl: providerUrl }, // Optional provider URL, only required when using Devnet
-  });
-
-  return irys;
-}
-
-async function checkBalance(): Promise<BigNumber> {
-  const irys: Irys = await getIrys();
-
-  // Get loaded balance in atomic units
-  
-  const atomicBalance: BigNumber = await irys.getLoadedBalance();
-
-  // Convert balance to standard units
-  const convertedBalance: BigNumber = irys.utils.fromAtomic(atomicBalance);
-
-  return convertedBalance;
-}
-
-const checkAndPrintBalance = async (): Promise<void> => {
-  const balance: BigNumber = await checkBalance();
-  const threshold: number = 0.1; // 10% threshold
-
-  if (Math.abs(balance.toNumber()) <= threshold) {
-    console.log(`Balance ${balance} is within 10% of 0, please fund.`);
-  } else {
-    console.log(`Balance ${balance} funding not yet needed.`);
-  }
-};
-
-async function uploadRootFile(fileToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
-  const irys = await getIrys();
-  let receipt: UploadResponse | null = null;
-  let retval: String | null = null;
-  const tags = [{ name: commit_name, value: ref_value }];
-
-  try {
-    receipt = await irys.uploadFile(fileToUpload, { tags });
-    console.log(`File uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
-    retval = receipt.id; 
-  } catch (e) {
-    console.log("Error uploading file ", e);
-  }
-
-  return retval;
-}
-
-async function uploadRootModel(fileToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
-	const irys = await getIrys();
-  let receipt: UploadResponse | null = null;
-  let retval: String | null = null;
-
-
-	const tags = [{ name: commit_name, value: ref_value }];
- 
-	try {
-		receipt = await irys.uploadFile(fileToUpload, { tags });
-		console.log(`File uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
-    retval = receipt.id; 
-	} catch (e) {
-		console.log("Error uploading file ", e);
-	}
-
-	return retval;
-};
-
-async function uploadRootStringData(dataToUpload: string, commit_name: string, ref_value: string): Promise<String | null> {
-	const irys = await getIrys();
-  let receipt: UploadResponse | null = null;
-	let retval: String | null = null;
-  const tags = [{ name: commit_name, value: ref_value }];
-	
-  try {
-		receipt = await irys.upload(dataToUpload, { tags });
-		console.log(`Data uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
-    retval = receipt.id; 
-	} catch (e) {
-		console.log("Error uploading data ", e);
-	}
-    return retval;
-};
-
-async function uploadProvFile(fileToUpload: string, rootTxId: string, commit_name: string, ref_value: string): Promise<String | null> {
-  const irys = await getIrys();
-  let receipt: UploadResponse | null = null;
-  let retval: String | null = null;
-
-  const { size } = await fs.promises.stat(fileToUpload);
-  const price = await irys.getPrice(size);
-  
-  const balance: BigNumber = await checkBalance();
-  const threshold: number = 0.1; // 10% threshold
-
-  if (Math.abs(balance.toNumber()) <= threshold) {
-    await irys.fund(price);
-  } 
-  
-  const priceConverted = irys.utils.fromAtomic(size);
-  console.log(`Uploading ${size} bytes costs ${priceConverted}`);
-  // Write tags to file ( might remove later as they are only relevant in queries)
-
-  const tags = [
-		{ name: commit_name, value: ref_value },
-		{ name: "root-tx", value: rootTxId },
-	];
- 
-  // Upload the file and return Irys id.
-  
-  try {
-    receipt = await irys.uploadFile(fileToUpload, { tags });
-    console.log(`File uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
-    retval = receipt.id; 
-  } catch (e) {
-    console.log("Error uploading file ", e);
-  }
-
-  return retval;
-};
-
-async function uploadProvModel(modelToUpload: string, rootTxId: string,  commit_name: string, ref_value: string): Promise<String | null> {
-	const irys = await getIrys();
-  let receipt: UploadResponse | null = null;
-  let retval: String | null = null;
-  
-  // Get number of bytes to print predicted price! 
-
-  // let filesManager = new FilesManager();
-  // const numBytes = filesManager.getFileSize(fileToUpload);
-  // const priceConverted = irys.utils.fromAtomic(numBytes);
-  // console.log(`Uploading ${numBytes} bytes costs ${priceConverted}`);
-
-  const { size } = await fs.promises.stat(modelToUpload);
-  const price = await irys.getPrice(size);
-  
-  const balance: BigNumber = await checkBalance();
-  const threshold: number = 0.1; // 10% threshold
-
-  if (Math.abs(balance.toNumber()) <= threshold) {
-    await irys.fund(price);
-  } 
-  
-  const priceConverted = irys.utils.fromAtomic(size);
-  console.log(`Uploading ${size} bytes costs ${priceConverted}`);
-  // Write tags to file ( might remove later as they are only relevant in queries)
-
-  const tags = [
-		{ name: commit_name, value: ref_value },
-		{ name: "root-tx", value: rootTxId },
-	];
- 
-  // Upload the file and return Irys id.
-
-	try {
-		receipt = await irys.uploadFile(modelToUpload, { tags });
-		console.log(`File uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
-    retval = receipt.id; 
-	} catch (e) {
-		console.log("Error uploading file ", e);
-	}
-
-	return retval;
-};
-
-async function uploadProvListNode(storedModelId: string, prevNodeId: string, rootTxId : string, commit_name: string, ref_value: string): Promise<String | null> {
-	const irys = await getIrys();
-  let receipt: UploadResponse | null = null;
-	let retval: String | null = null;
-  
-  const dataToUpload = storedModelId + " || " + prevNodeId;
-
-  const size = dataToUpload.length; 
-  const price = await irys.getPrice(size);
-  
-  const balance: BigNumber = await checkBalance();
-  const threshold: number = 0.1; // 10% threshold
-
-  if (Math.abs(balance.toNumber()) <= threshold) {
-    await irys.fund(price);
-  } 
-  
-  const priceConverted = irys.utils.fromAtomic(size);
-  console.log(`Uploading ${size} bytes costs ${priceConverted}`);
-
-  // Write tags to file ( might remove later as they are only relevant in queries)
-  
-  const tags = [
-		{ name: commit_name, value: ref_value },
-		{ name: "root-tx", value: rootTxId },
-	];
-	
-  try {
-		receipt = await irys.upload(dataToUpload, { tags });
-		console.log(`Data uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
-    retval = receipt.id; 
-	} catch (e) {
-		console.log("Error uploading data ", e);
-	}
-    return retval;
-};
-
-async function uploadProvStringData(dataToUpload: string, rootTxId: string,  commit_name: string, ref_value: string): Promise<String | null> {
-	const irys = await getIrys();
-  let receipt: UploadResponse | null = null;
-	let retval: String | null = null;
-  
-  const size = dataToUpload.length; 
-  const price = await irys.getPrice(size);
-  
-  const balance: BigNumber = await checkBalance();
-  const threshold: number = 0.1; // 10% threshold
-
-  if (Math.abs(balance.toNumber()) <= threshold) {
-    await irys.fund(price);
-  } 
-  
-  const priceConverted = irys.utils.fromAtomic(size);
-  console.log(`Uploading ${size} bytes costs ${priceConverted}`);
-
-  // Write tags to file ( might remove later as they are only relevant in queries)
-  
-  const tags = [
-		{ name: commit_name, value: ref_value },
-		{ name: "root-tx", value: rootTxId },
-	];
-	
-  try {
-		receipt = await irys.upload(dataToUpload, { tags });
-		console.log(`Data uploaded ==> https://gateway.irys.xyz/${receipt.id}`);
-    retval = receipt.id; 
-	} catch (e) {
-		console.log("Error uploading data ", e);
-	}
-    return retval;
-};
 
 function createKeypairFromFile(path: string): Keypair {
   return Keypair.fromSecretKey(
@@ -453,18 +55,8 @@ function createKeypairFromFile(path: string): Keypair {
   )
 };
 
-const getNameKey = async (  name: string,  nameClass?: PublicKey,  parentName?: PublicKey,) => {
-  const hashedName = await getHashedName(name);
-  const nameAccountKey = await getNameAccountKey(
-    hashedName,
-    nameClass,
-    parentName,
-  );
-  return nameAccountKey;
-};
-
-
-describe('Name Service Program', async () => {
+async function main() {
+//describe('Name Service Program', async () => {
   const connection = new Connection(url, 'confirmed');
   // const payer = Keypair.generate();
   const payer = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
@@ -476,6 +68,7 @@ describe('Name Service Program', async () => {
 
   checkAndPrintBalance();
   
+  // Airdrop code in case it is ever necessary 
   // before(async () => {
   //   const airdropSignature = await connection.requestAirdrop(
   //     payer.publicKey,
@@ -491,128 +84,57 @@ describe('Name Service Program', async () => {
   //   nameAccount.owner.equals(owner.publicKey);
   //   expect(nameAccount.data?.length).to.eql(space);
   // });
-  it('Create Name Registery', async () => {  
-    
+  //it('Create Name Registery', async () => {  
+
     // ==================================================================================
     // ----------------------------- Allocate Name Registry -----------------------------
     // ==================================================================================
 
-    const name = Math.random().toString() + '.sol';
-    const nameKey = await getNameKey(name);
-    const lamports = await connection.getMinimumBalanceForRentExemption(
-      space + NameRegistryState.HEADER_LEN,
-    );
-    let inst = await createNameRegistry(connection,name,space,payer.publicKey,owner.publicKey,lamports);
-    let tx = new Transaction().add(inst);
-    await sendAndConfirmTransaction(connection, tx, [payer]);
-  
-    // ==================================================================================
-    // ------------------------------- Place Root Node ----------------------------------
-    // ==================================================================================
-
-    const directoryPath = '../models/';
-    // const directoryPath = '../MNIST-DIGIT/';
-    // const directoryPath = '../FASHION-MNIST/';
-    // const directoryPath = '../LeNet/';    
-    try {  
-      const files = await fs.promises.readdir(directoryPath);
-      console.log(directoryPath+files[0]);
-
-      let prev_id = "0000000000000000000000000000000000000000000";
+    name = Math.random().toString() + '.sol';
     
-      console.log("Arweave Id to be stored: \n" + prev_id + '\n');
-  
-      let modelId = await uploadProvModel(directoryPath+files[0],prev_id,"Content-Type","text/plain");
+    await createModelRegistry(connection,name,space,payer,owner);
+
+    //  Socket Server Code.
+
+    // Create a server
+    const server = net.createServer((clientSocket) => {
+    console.log(`Client connected: ${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
+
+    let rootIdTx : string | null = "0000000000000000000000000000000000000000000"; 
+    let prevIdTx : string | null = "0000000000000000000000000000000000000000000";
+
+    // Handle data received from the client
+    clientSocket.on('data', async (data) => {
+      console.log(`Received data: ${data.toString()}`);
       
-      let rootModelTxId = modelId; 
-  
-      let nodeId = await uploadProvListNode(modelId as string, prev_id, prev_id,"Content-Type","text/plain");
-  
-      let rootNodeTxId = nodeId;  
-  
-      let data = Buffer.from("Nothing",'utf-8');
-      if (nodeId == null) {
-        console.log("The string is null or undefined.");
+      let nameAccount = await retrieveModelRegistry(connection, name);
+
+      if (nameAccount==="0000000000000000000000000000000000000000000"){
+
+        rootIdTx = await uploadModelUpdate(data.toString(),nameAccount,nameAccount);
+        prevIdTx = rootIdTx; 
       } else {
-        console.log("The string is neither null nor undefined.");
-        data = Buffer.from(nodeId,'utf-8');
+        prevIdTx = await uploadModelUpdate(data.toString(),prevIdTx!,rootIdTx!);
       }
-  
-      console.log("Arweave Id to be stored: \n" + data + '\n');
-      
-      inst = await updateNameRegistryData(connection, name, 0, data);
-      tx = new Transaction().add(inst);
-      await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-      
-      let nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-      
-      for (const file of files.slice(1)) {
-        console.log(directoryPath+file);
-        // ==================================================================================
-        // -------------------------- Retrieve Name Registry --------------------------------
-        // ==================================================================================
+      await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
+    });  
 
-        nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-        console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
-        nameAccount.data?.equals(data);
+    clientSocket.on('end', async () => {
+      console.log('Client disconnected');
+      await deleteModelRegistry(connection,name,payer,owner);
+      await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+    });
+    
+  });
+    
+  // Listen for incoming connections
+  server.listen(port, host, async () => {
+    console.log(`Server listening on ${host}:${port}`);
+  });
+    
+}
 
-        // ==================================================================================
-        // ------------------------------- Place Additional Nodes ---------------------------
-        // ==================================================================================
+main();
+ // }).timeout(100000000000000000000);
 
-        nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-        prev_id = nameAccount.data?.toString('utf8') ?? "0000000000000000000000000000000000000000000";
-
-        modelId = await uploadProvModel(directoryPath+file,rootModelTxId as string,"Content-Type","text/plain");
-        
-        nodeId = await uploadProvListNode(modelId as string, prev_id, rootNodeTxId as string,"Content-Type","text/plain");
-
-        data = Buffer.from("Nothing",'utf-8');
-        if (nodeId == null) {
-          console.log("The string is null or undefined.");
-        } else {
-          console.log("The string is neither null nor undefined.");
-          data = Buffer.from(nodeId,'utf-8');
-        }
-
-        console.log("Arweave Id to be stored: \n" + data + '\n');
-        
-        inst = await updateNameRegistryData(connection, name, 0, data);
-        tx = new Transaction().add(inst);
-        await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-      }
-      
-      // // ==================================================================================
-      // // -------------------------- Retrieve Name Registry --------------------------------
-      // // ==================================================================================
-
-      nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-      console.log("Arweave Id retrieved from on-chain storage: \n" + nameAccount.data?.toString('utf8') + '\n');
-      nameAccount.data?.equals(data);
-  
-      await printProvenanceChainSDK(rootModelTxId as string);
-      await printProvenanceChainSDK(rootNodeTxId as string);
-  
-      await myProvenanceChain(nameAccount.data?.toString('utf8')!);
-      // const url = `https://gateway.irys.xyz/${nameAccount.data?.toString('utf8')!}`;
-      // const response = await fetch(url);
-      // const dat = await response.text();
-  
-      // console.log("Arweave Id to be stored: \n" + prev_id + '\n');
-  
-      // ==================================================================================
-      // -------------------------- Delete Name Registry ----------------------------------
-      // ==================================================================================
-  
-      inst = await deleteNameRegistry(connection, name, payer.publicKey);
-      tx = new Transaction().add(inst);
-      await sendAndConfirmTransaction(connection, tx, [payer, owner]);
-      let nullAccount = await connection.getAccountInfo(nameKey);
-      expect(nullAccount).to.be.null;
-    } catch (err) {
-      console.error('Error reading directory:', err);
-    }   
-
-  }).timeout(1000000);
-});
 
