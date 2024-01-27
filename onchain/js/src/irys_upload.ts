@@ -252,9 +252,13 @@ export const uploadProvStringData = async (dataToUpload: string, rootTxId: strin
 export const uploadModelUpdate = async (modelPath: string,prevId: string,rootTxId: string): Promise<string | null> => {
     console.log("Arweave Id to be stored: \n" + prevId + '\n');
     
-    let modelId = await uploadProvModel(modelPath,rootTxId,"Content-Type","text/plain");
+//    let modelId = await uploadProvModel(modelPath,rootTxId,"Content-Type","text/plain");
+
+    let modelId = await uploadProvModel(modelPath, rootTxId,"Content-Type","text/plain");
 
     let nodeId = await uploadProvListNode(modelId as string, prevId, rootTxId,"Content-Type","text/plain");
+
+    
 
     return nodeId
 }

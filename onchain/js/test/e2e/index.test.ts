@@ -11,6 +11,7 @@ import chaiAsPromised from 'chai-as-promised';
 
 
 import {
+  airdropToPayer,
   createModelRegistry,
   deleteModelRegistry,
   updateModelRegistry,

@@ -1,16 +1,11 @@
 import {
     Connection,
     Keypair,
-    LAMPORTS_PER_SOL,
-    PublicKey,
-    sendAndConfirmTransaction,
-    Transaction,
-  } from '@solana/web3.js';
-//   import chai, { expect } from 'chai';
-//   import chaiAsPromised from 'chai-as-promised';
-  
-  
-  import {
+    PublicKey
+  } from '@solana/web3.js'; 
+
+import {
+    airdropToPayer,
     createModelRegistry,
     deleteModelRegistry,
     updateModelRegistry,
@@ -21,121 +16,140 @@ import {
     printProvenanceChainSDK,
     checkAndPrintBalance,
     uploadModelUpdate
-  } from './src';
-  
-  import dotenv from "dotenv";
-  import * as net from 'net';
-  
-  //chai.use(chaiAsPromised);
-  
-  // Dotenv configuration. Please provide .env file with SOL_PRIVATE_KEY = Solana private key here
-  // Url is set to Solana Devnet. If changed to mainet use a mainet funded Solana wallet to operate  
-  
-  dotenv.config();
-  const url = "https://api.devnet.solana.com";
-  
+} from './src';
+
+import dotenv from "dotenv";
+import * as net from 'net';
+import * as fs from 'fs';
+//chai.use(chaiAsPromised);
+
+// Dotenv configuration. Please provide .env file with SOL_PRIVATE_KEY = Solana private key here
+// Url is set to Solana Devnet. If changed to mainet use a mainet funded Solana wallet to operate  
+
+dotenv.config();
+const url = "https://api.devnet.solana.com";
+
+
+// ============================================================================
+// https://docs.irys.xyz/hands-on/tutorials/provenance-chain
+// https://docs.irys.xyz/developer-docs/querying/query-package
+// ============================================================================
+
+// ============================================================================
+// https://github.com/adap/flower/blob/main/examples/flower-in-30-minutes/tutorial.ipynb
+// https://flower.dev/docs/framework/tutorial-series-get-started-with-flower-pytorch.html
+// ============================================================================
+
+function createKeypairFromFile(path: string): Keypair {
+  return Keypair.fromSecretKey(
+      Buffer.from(JSON.parse(require('fs').readFileSync(path, "utf-8")))
+  )
+};
+
+async function readUntilExists(filePath: string, interval = 1000, maxAttempts = 10): Promise<string> {  
+  let attempts = 0;
+  return new Promise((resolve, reject) => {
+      function checkFile() {
+          fs.access(filePath, fs.constants.F_OK, (err) => {
+              if (!err) {
+                  // File exists, resolve the promise
+                  resolve(filePath);
+              } else {
+                  attempts++;
+                  if (attempts >= maxAttempts) {
+                      // Max attempts reached, reject the promise
+                      reject(new Error(`File not found after ${maxAttempts} attempts`));
+                  } else {
+                      // Retry after the specified interval
+                      setTimeout(checkFile, interval);
+                  }
+              }
+          });
+      }
+
+      // Start checking the file
+      checkFile();
+  });
+}
+
+async function main() {
+//describe('Name Service Program', async () => {
+  const args: string[] = process.argv;
   // Server configuration for Connection to server
   const host = '127.0.0.1';
-  const port = 12345;
+  //const port = 12345;
+  const port: number = parseInt(`${args[2]}2345`);
+  const connection = new Connection(url, 'confirmed');
+  // const payer = Keypair.generate();
+  const payer = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
+  //const owner = Keypair.generate();
+  const owner = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
+  const space = 43;
+  let name: string;
   
-  // ============================================================================
-  // https://docs.irys.xyz/hands-on/tutorials/provenance-chain
-  // https://docs.irys.xyz/developer-docs/querying/query-package
-  // ============================================================================
+  //await airdropToPayer(connection,payer);
+  await checkAndPrintBalance();
   
-  // ============================================================================
-  // https://github.com/adap/flower/blob/main/examples/flower-in-30-minutes/tutorial.ipynb
-  // https://flower.dev/docs/framework/tutorial-series-get-started-with-flower-pytorch.html
-  // ============================================================================
+  name = Math.random().toString() + '.sol';
   
-  
-  function createKeypairFromFile(path: string): Keypair {
-    return Keypair.fromSecretKey(
-        Buffer.from(JSON.parse(require('fs').readFileSync(path, "utf-8")))
-    )
-  };
-  
-  async function main() {
-  //describe('Name Service Program', async () => {
-    const connection = new Connection(url, 'confirmed');
-    // const payer = Keypair.generate();
-    const payer = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
-    //const owner = Keypair.generate();
-    const owner = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
-    const space = 43;
-    let nameKey: PublicKey;
-    let name: string;
-  
-    checkAndPrintBalance();
+  await createModelRegistry(connection,name,space,payer,owner);
+
+  // Handle data received from client
+  //const receivedFilePath = 'model.txt';
+  //const fileWriteStream = fs.createWriteStream(receivedFilePath);
+
+  //  Socket Server Code.
+
+  // Create a server
+  const server = net.createServer((clientSocket) => {
+  console.log(`Client connected: ${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
+
+  let rootIdTx : string | null = "0000000000000000000000000000000000000000000"; 
+  let prevIdTx : string | null = "0000000000000000000000000000000000000000000";
+  let nameAccount : string;
+  // Handle data received from the client
+  clientSocket.on('data', async (data) => {
+    console.log(`Received data: ${data.toString()}`);
+
+    (async () => {
+      try {
+          const filePath = await readUntilExists(data.toString(),2000,20);
+          console.log(`File found: ${filePath}`);
+          nameAccount = await retrieveModelRegistry(connection, name);
+
+          if (nameAccount==="0000000000000000000000000000000000000000000"){
+            rootIdTx = await uploadModelUpdate(filePath,nameAccount,nameAccount);
+            prevIdTx = rootIdTx; 
+          } else {
+            prevIdTx = await uploadModelUpdate(data.toString(),prevIdTx!,rootIdTx!);
+          }
+            await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
+          // Send acknowledgment back to the client
+          clientSocket.write('Data received and processed successfully. Ready for next input.');
+      } catch (error) {
+          console.error("Error");
+          // Handle the error (e.g., log, notify, etc.)
+      }
+    })();
+  });  
+
+  clientSocket.on('end', async () => {
+    console.log('Client disconnected');
+    await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+    await deleteModelRegistry(connection,name,payer,owner);
+  });
     
-    // Airdrop code in case it is ever necessary 
-    // before(async () => {
-    //   const airdropSignature = await connection.requestAirdrop(
-    //     payer.publicKey,
-    //     LAMPORTS_PER_SOL,
-    //   );
-    //   await connection.confirmTransaction({
-    //     signature: airdropSignature,
-    //     ...(await connection.getLatestBlockhash()),
-    //   });
-    // });
-    // it('Create Name Registery', async () => {
-    //   const nameAccount = await NameRegistryState.retrieve(connection, nameKey);
-    //   nameAccount.owner.equals(owner.publicKey);
-    //   expect(nameAccount.data?.length).to.eql(space);
-    // });
-    //it('Create Name Registery', async () => {  
+  });
+    
+  // Listen for incoming connections
+  server.listen(port, host, async () => {
+    console.log(`Server listening on ${host}:${port}`);
+  });
+    
+}
   
-      // ==================================================================================
-      // ----------------------------- Allocate Name Registry -----------------------------
-      // ==================================================================================
-  
-      name = Math.random().toString() + '.sol';
-      
-      await createModelRegistry(connection,name,space,payer,owner);
-  
-      //  Socket Server Code.
-  
-      // Create a server
-      const server = net.createServer((clientSocket) => {
-      console.log(`Client connected: ${clientSocket.remoteAddress}:${clientSocket.remotePort}`);
-  
-      let rootIdTx : string | null = "0000000000000000000000000000000000000000000"; 
-      let prevIdTx : string | null = "0000000000000000000000000000000000000000000";
-  
-      // Handle data received from the client
-      clientSocket.on('data', async (data) => {
-        console.log(`Received data: ${data.toString()}`);
-        
-        let nameAccount = await retrieveModelRegistry(connection, name);
-  
-        if (nameAccount==="0000000000000000000000000000000000000000000"){
-  
-          rootIdTx = await uploadModelUpdate(data.toString(),nameAccount,nameAccount);
-          prevIdTx = rootIdTx; 
-        } else {
-          prevIdTx = await uploadModelUpdate(data.toString(),prevIdTx!,rootIdTx!);
-        }
-        await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
-      });  
-  
-      clientSocket.on('end', async () => {
-        console.log('Client disconnected');
-        await deleteModelRegistry(connection,name,payer,owner);
-        await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
-      });
-      
-    });
-      
-    // Listen for incoming connections
-    server.listen(port, host, async () => {
-      console.log(`Server listening on ${host}:${port}`);
-    });
-      
-  }
-  
-  main();
-   // }).timeout(100000000000000000000);
+main();
+
   
   
   

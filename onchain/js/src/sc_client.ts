@@ -19,6 +19,17 @@ import {
   } from '.';
 
 
+export const airdropToPayer = async (connection: Connection,payer:Keypair) =>{
+const airdropSignature = await connection.requestAirdrop(
+        payer.publicKey,
+        LAMPORTS_PER_SOL,
+    );
+    await connection.confirmTransaction({
+        signature: airdropSignature,
+        ...(await connection.getLatestBlockhash()),
+    });
+}  
+
 ////////////////////////////////////////////////////////////
 /**
  * Returns the namekey for the given name  
