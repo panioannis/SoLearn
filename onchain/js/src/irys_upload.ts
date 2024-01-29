@@ -138,13 +138,6 @@ export const uploadProvModel = async (modelToUpload: string, rootTxId: string,  
     let receipt: UploadResponse | null = null;
     let retval: string | null = null;
 
-    // Get number of bytes to print predicted price! 
-
-    // let filesManager = new FilesManager();
-    // const numBytes = filesManager.getFileSize(fileToUpload);
-    // const priceConverted = irys.utils.fromAtomic(numBytes);
-    // console.log(`Uploading ${numBytes} bytes costs ${priceConverted}`);
-
     const { size } = await fs.promises.stat(modelToUpload);
     const price = await irys.getPrice(size);
 
@@ -214,7 +207,7 @@ export const uploadProvListNode = async (storedModelId: string, prevNodeId: stri
     return retval;
 };
 
-export const uploadProvStringData = async (dataToUpload: string, rootTxId: string,  commit_name: string, ref_value: string): Promise<string | null> => {
+export const uploadProvStringData = async (dataToUpload: Buffer, rootTxId: string,  commit_name: string, ref_value: string): Promise<string | null> => {
     const irys = await getIrys();
     let receipt: UploadResponse | null = null;
     let retval: string | null = null;
@@ -232,7 +225,7 @@ export const uploadProvStringData = async (dataToUpload: string, rootTxId: strin
     const priceConverted = irys.utils.fromAtomic(size);
     console.log(`Uploading ${size} bytes costs ${priceConverted}`);
 
-    // Write tags to file ( might remove later as they are only relevant in queries)
+    //Write tags to file ( might remove later as they are only relevant in queries)
 
     const tags = [
             { name: commit_name, value: ref_value },
@@ -249,16 +242,14 @@ export const uploadProvStringData = async (dataToUpload: string, rootTxId: strin
     return retval;
 };
 
-export const uploadModelUpdate = async (modelPath: string,prevId: string,rootTxId: string): Promise<string | null> => {
+export const uploadModelUpdate = async (dataToUpload: Buffer,prevId: string,rootTxId: string): Promise<string | null> => {
     console.log("Arweave Id to be stored: \n" + prevId + '\n');
     
 //    let modelId = await uploadProvModel(modelPath,rootTxId,"Content-Type","text/plain");
 
-    let modelId = await uploadProvModel(modelPath, rootTxId,"Content-Type","text/plain");
+    let modelId = await uploadProvStringData(dataToUpload, rootTxId,"Content-Type","text/plain");
 
     let nodeId = await uploadProvListNode(modelId as string, prevId, rootTxId,"Content-Type","text/plain");
-
-    
 
     return nodeId
 }

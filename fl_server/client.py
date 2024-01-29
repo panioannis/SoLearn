@@ -13,7 +13,22 @@ from tqdm import tqdm
 
 import random
 import numpy as np
-import socket
+import requests
+import json
+import pickle
+
+rom flwr.common import (
+    EvaluateIns,
+    EvaluateRes,
+    FitIns,
+    FitRes,
+    MetricsAggregationFn,
+    NDArrays,
+    Parameters,
+    Scalar,
+    ndarrays_to_parameters,
+    parameters_to_ndarrays,
+)
 
 # Server configuration
 host = '127.0.0.1'
@@ -116,33 +131,47 @@ node_id = parser.parse_args().node_id
 
 # Load model and data (simple CNN, CIFAR-10)
 net = Net().to(DEVICE)
-trainloader, testloader = load_data(node_id=node_id)    
+trainloader, testloader = load_data(node_id=node_id)  
+
+    # Define a custom encoder to handle NumPy arrays
+class NumpyArrayEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
 
 # Define Flower client
 class FlowerClient(fl.client.NumPyClient):
     def get_parameters(self, config):
         weights = [val.cpu().numpy() for _, val in net.state_dict().items()]
-        # Create a socket object
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # Server configuration
-        host = '127.0.0.1'
-        port = int(f"{node_id+1}2345")
-        # Connect to the server
-        client_socket.connect((host, port))
         
-        try:
-            random_number = random.randint(1, 10000)  # Adjust the range as needed
-            name = f"../onchain/models{node_id+1}/CIFAR_10_{random_number}.npy"
-            np.save(name, np.array(weights, dtype=object), allow_pickle=True)
-            # Send data to the server
-            message = f"../models{node_id+1}/CIFAR_10_{random_number}.npy"
-            client_socket.send(message.encode())
-            acknowledgment = client_socket.recv(1024)
-            print("Acknowledgment from server:", acknowledgment.decode())
-        finally:
-            # Close the connection
-            client_socket.close()
-        return weights    
+        serialized_model = pickle.dumps(weights)
+
+        url = f"http://127.0.0.1:300{node_id}/api/post"
+
+        response = requests.post(url, data=serialized_model, headers={'Content-Type': 'application/octet-stream'})
+
+        # Check if the request was successful (status code 200)
+        if response.status_code == 200:
+            # Extracting the JSON body from the response
+            print("Ok \n")
+            #loaded_data = pickle.loads(response.content)
+            
+        else:
+            print("POST request failed with status code:", response.status_code)
+
+        response = requests.get("https://gateway.irys.xyz/bI6hUhf9XP6YVXOJdvTdH-sSxfDeTaz9Un_Sjtvylcg")
+
+        if response.status_code == 200:
+            # Extracting the JSON body from the response
+
+            loaded_data = pickle.loads(response.content)
+            
+        else:
+            print("POST request failed with status code:", response.status_code)
+
+
+        return loaded_data
         
 
     def set_parameters(self, parameters):
