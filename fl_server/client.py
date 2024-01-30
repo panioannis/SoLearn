@@ -1,6 +1,7 @@
 import argparse
 import warnings
 from collections import OrderedDict
+from typing import Dict, List, Optional, Tuple
 
 import flwr as fl
 from flwr_datasets import FederatedDataset
@@ -11,23 +12,39 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import Compose, Normalize, ToTensor
 from tqdm import tqdm
 
+from io import BytesIO
 import random
 import numpy as np
 import requests
 import json
 import pickle
 
-rom flwr.common import (
+from flwr.common import (
+    Code,
     EvaluateIns,
     EvaluateRes,
     FitIns,
     FitRes,
-    MetricsAggregationFn,
-    NDArrays,
-    Parameters,
-    Scalar,
+    GetParametersIns,
+    GetParametersRes,
+    Status,
     ndarrays_to_parameters,
-    parameters_to_ndarrays,
+    parameters_to_ndarrays
+)
+
+from flwr.proto.transport_pb2 import (
+    ClientMessage,
+    Code,
+    Parameters,
+    Reason,
+    Scalar,
+    ServerMessage,
+    Status,
+)
+
+from flwr.common.serde import (
+    parameters_to_proto,
+    parameters_from_proto
 )
 
 # Server configuration
@@ -62,8 +79,16 @@ class Net(nn.Module):
         x = x.view(-1, 16 * 5 * 5)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        x = self.fc3(x)
+        return x
 
+def get_model_parameters(net) -> List[np.ndarray]:
+    return [val.cpu().numpy() for _, val in net.state_dict().items()]
+
+def set_model_parameters(net, parameters: List[np.ndarray]):
+    params_dict = zip(net.state_dict().keys(), parameters)
+    state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
+    net.load_state_dict(state_dict, strict=True)
 
 def train(net, trainloader, epochs):
     """Train the model on the training set."""
@@ -76,7 +101,6 @@ def train(net, trainloader, epochs):
             optimizer.zero_grad()
             criterion(net(images.to(DEVICE)), labels.to(DEVICE)).backward()
             optimizer.step()
-
 
 def test(net, testloader):
     """Validate the model on the test set."""
@@ -91,7 +115,6 @@ def test(net, testloader):
             correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
     accuracy = correct / len(testloader.dataset)
     return loss, accuracy
-
 
 def load_data(node_id):
     """Load partition CIFAR10 data."""
@@ -113,7 +136,6 @@ def load_data(node_id):
     testloader = DataLoader(partition_train_test["test"], batch_size=32)
     return trainloader, testloader
 
-
 # #############################################################################
 # 2. Federation of the pipeline with Flower
 # #############################################################################
@@ -127,71 +149,163 @@ parser.add_argument(
     type=int,
     help="Partition of the dataset divided into 3 iid partitions created artificially.",
 )
+
 node_id = parser.parse_args().node_id
 
-# Load model and data (simple CNN, CIFAR-10)
-net = Net().to(DEVICE)
-trainloader, testloader = load_data(node_id=node_id)  
+def send_weights(weights):
+    url = f"http://127.0.0.1:300{node_id}/api/post"
+    serialized_model = pickle.dumps(weights)
+    response = requests.post(url, data=serialized_model, headers={'Content-Type': 'application/octet-stream'})
 
-    # Define a custom encoder to handle NumPy arrays
-class NumpyArrayEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
+    # Check if the request was successful (status code 200)
+    if response.status_code == 200:
+        # Extracting the JSON body from the response
+        print("Ok \n")
+        #loaded_data = pickle.loads(response.content)
+    else:
+        print("POST request failed with status code:", response.status_code)
 
-# Define Flower client
-class FlowerClient(fl.client.NumPyClient):
-    def get_parameters(self, config):
-        weights = [val.cpu().numpy() for _, val in net.state_dict().items()]
+    response = requests.get("https://gateway.irys.xyz/bI6hUhf9XP6YVXOJdvTdH-sSxfDeTaz9Un_Sjtvylcg")
+
+    if response.status_code == 200:
+        # Extracting the JSON body from the response
+
+        loaded_data = pickle.loads(response.content)
+    else:
+        print("POST request failed with status code:", response.status_code)
+    return loaded_data
+
+class FlowerClient(fl.client.Client):
+    def __init__(self, cid, net, trainloader, valloader):
+        self.cid = cid
+        self.net = net
+        self.trainloader = trainloader
+        self.valloader = valloader
+
+    def get_parameters(self, ins: GetParametersIns) -> GetParametersRes:
+        print(f"[Client {self.cid}] get_parameters")
+
+        # Get parameters as a list of NumPy ndarray's
+
+        ndarrays: List[np.ndarray] = get_model_parameters(self.net)
+
+        # Serialize ndarray's into a Parameters object
+        parameters = ndarrays_to_parameters(self.net)
+
         
-        serialized_model = pickle.dumps(weights)
+    
+        #new_model = Net()
+        #new_model.load_state_dict(m_state_dict)
 
-        url = f"http://127.0.0.1:300{node_id}/api/post"
+        
 
-        response = requests.post(url, data=serialized_model, headers={'Content-Type': 'application/octet-stream'})
+        # def ndarrays_to_parameters(ndarrays: NDArrays) -> Parameters:
+        # """Convert NumPy ndarrays to parameters object."""
+        # tensors = [ndarray_to_bytes(ndarray) for ndarray in ndarrays]
+        # return Parameters(tensors=tensors, tensor_type="numpy.ndarray")
+
+        # def parameters_to_ndarrays(parameters: Parameters) -> NDArrays:
+        # """Convert parameters object to NumPy ndarrays."""
+        # return [bytes_to_ndarray(tensor) for tensor in parameters.tensors]
+
+        # class Parameters:
+        # """Model parameters."""
+
+        # tensors: List[bytes]
+        # tensor_type: str
+        # Build and return response
+        status = Status(code=Code.OK, message="Success")
+        return GetParametersRes(
+            status=status,
+            parameters=parameters,
+        )
+
+    def fit(self, ins: FitIns) -> FitRes:
+        print(f"[Client {self.cid}] fit, config: {ins.config}")
+
+        # Deserialize parameters to NumPy ndarray's
+        parameters_original = ins.parameters
+        ndarrays_original = parameters_to_ndarrays(parameters_original)
+
+        # Update local model, train, get updated parameters
+        set_model_parameters(self.net, ndarrays_original)
+        train(self.net, self.trainloader, epochs=1)
+        
+        bytes_buffer = BytesIO()
+        #torch.save(self.net, "model.pt")
+        torch.save(self.net.state_dict(), bytes_buffer)
+
+        bytes_buffer.seek(0)
+
+        url = f"http://127.0.0.1:300{self.cid}/api/post"
+        response = requests.post(url, data=bytes_buffer, headers={'Content-Type': 'application/octet-stream'})
 
         # Check if the request was successful (status code 200)
         if response.status_code == 200:
             # Extracting the JSON body from the response
-            print("Ok \n")
-            #loaded_data = pickle.loads(response.content)
-            
+            received_bytes_buffer = BytesIO(response.content)
+            print(bytes_buffer.getbuffer().nbytes)
         else:
             print("POST request failed with status code:", response.status_code)
 
-        response = requests.get("https://gateway.irys.xyz/bI6hUhf9XP6YVXOJdvTdH-sSxfDeTaz9Un_Sjtvylcg")
-
-        if response.status_code == 200:
-            # Extracting the JSON body from the response
-
-            loaded_data = pickle.loads(response.content)
-            
-        else:
-            print("POST request failed with status code:", response.status_code)
-
-
-        return loaded_data
+        bytes_buffer.seek(0)
+    
+        received_bytes_buffer.seek(0)
         
+        model_state_dict = torch.load(received_bytes_buffer)
+        
+        #new_model = Net()
+        self.net.load_state_dict(model_state_dict)
 
-    def set_parameters(self, parameters):
-        params_dict = zip(net.state_dict().keys(), parameters)
-        state_dict = OrderedDict({k: torch.tensor(v) for k, v in params_dict})
-        net.load_state_dict(state_dict, strict=True)
+        bytes_buffer.close()
+        received_bytes_buffer.close()
 
-    def fit(self, parameters, config):
-        self.set_parameters(parameters)
-        train(net, trainloader, epochs=1)
-        return self.get_parameters(config={}), len(trainloader.dataset), {}
+        #self.net = new_model
 
-    def evaluate(self, parameters, config):
-        self.set_parameters(parameters)
-        loss, accuracy = test(net, testloader)
-        return loss, len(testloader.dataset), {"accuracy": accuracy}
+        # Get model parameters of the updated model.
+        ndarrays_updated = get_model_parameters(self.net)
+        # Serialize ndarray's into a Parameters object
+        parameters_updated = ndarrays_to_parameters(ndarrays_updated)
+
+        # Build and return response
+        status = Status(code=Code.OK, message="Success")
+        return FitRes(
+            status=status,
+            parameters=parameters_updated,
+            num_examples=len(self.trainloader),
+            metrics={},
+        )
+
+    def evaluate(self, ins: EvaluateIns) -> EvaluateRes:
+        print(f"[Client {self.cid}] evaluate, config: {ins.config}")
+
+        # Deserialize parameters to NumPy ndarray's
+        parameters_original = ins.parameters
+        ndarrays_original = parameters_to_ndarrays(parameters_original)
+
+        set_model_parameters(self.net, ndarrays_original)
+        loss, accuracy = test(self.net, self.valloader)
+        # return float(loss), len(self.valloader), {"accuracy": float(accuracy)}
+
+        # Build and return response
+        status = Status(code=Code.OK, message="Success")
+        return EvaluateRes(
+            status=status,
+            loss=float(loss),
+            num_examples=len(self.valloader),
+            metrics={"accuracy": float(accuracy)},
+        )
+
+def client_fn(cid) -> FlowerClient:
+    # Load model and data (simple CNN, CIFAR-10)
+    net = Net().to(DEVICE)
+    trainloader, testloader = load_data(node_id=cid)
+    return FlowerClient(cid, net, trainloader, testloader)
+
 
 
 # Start Flower client
-fl.client.start_numpy_client(
+fl.client.start_client(
     server_address="127.0.0.1:5321",
-    client=FlowerClient(),
+    client=client_fn(node_id),
 )

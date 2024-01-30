@@ -69,7 +69,7 @@ checkAndPrintBalance();
 
 name = Math.random().toString() + '.sol';
 
-createModelRegistry(connection,name,space,payer,owner);
+//createModelRegistry(connection,name,space,payer,owner);
 
 let rootIdTx : string | null = "0000000000000000000000000000000000000000000"; 
 let prevIdTx : string | null = "0000000000000000000000000000000000000000000";
@@ -79,20 +79,21 @@ app.post('/api/post', async (req: Request, res: Response) => {
   try{
     const pickledModel = req.body;
 
-    nameAccount = await retrieveModelRegistry(connection, name);
+    console.log(pickledModel.length);
+    // nameAccount = await retrieveModelRegistry(connection, name);
 
-    if (nameAccount==="0000000000000000000000000000000000000000000"){
-      rootIdTx = await uploadModelUpdate(pickledModel,nameAccount,nameAccount);
-      prevIdTx = rootIdTx; 
-    } else {
-      prevIdTx = await uploadModelUpdate(pickledModel,prevIdTx!,rootIdTx!);
-    }
-    await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
+    // if (nameAccount==="0000000000000000000000000000000000000000000"){
+    //   rootIdTx = await uploadModelUpdate(pickledModel,nameAccount,nameAccount);
+    //   prevIdTx = rootIdTx; 
+    // } else {
+    //   prevIdTx = await uploadModelUpdate(pickledModel,prevIdTx!,rootIdTx!);
+    // }
+    // await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
 
-    //await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
-    //await deleteModelRegistry(connection,name,payer,owner);
+    // await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+    // await deleteModelRegistry(connection,name,payer,owner);
     
-    res.status(200).send(pickledModel);
+    res.status(200).send(pickledModel);//prevIdTx);
   }catch (error){
     res.status(500).send("An error occurred while processing the request.");
   }

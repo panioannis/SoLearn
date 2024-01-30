@@ -1,13 +1,86 @@
-from typing import List, Tuple
+from collections import OrderedDict
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import flwr as fl
-from flwr.common import Metrics
 
-import random
+from flwr.common import (
+    EvaluateIns,
+    EvaluateRes,
+    FitIns,
+    FitRes,
+    MetricsAggregationFn,
+    NDArrays,
+    Parameters,
+    Scalar,
+    ndarrays_to_parameters,
+    parameters_to_ndarrays,
+)
+
+from flwr.proto.transport_pb2 import (
+    ClientMessage,
+    Code,
+    Parameters,
+    Reason,
+    Scalar,
+    ServerMessage,
+    Status,
+)
+
+from flwr.common.serde import (
+    parameters_to_proto,
+    parameters_from_proto
+)
+
 import numpy as np
-import requests
-import json
-import pickle
+
+import flwr as fl
+from flwr_datasets import FederatedDataset
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+DEVICE = torch.device("cpu")  # Try "cuda" to train on GPU
+print(
+    f"Training on {DEVICE} using PyTorch {torch.__version__} and Flower {fl.__version__}"
+)
+
+from flwr.server.client_manager import ClientManager
+from flwr.server.client_proxy import ClientProxy
+from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
+
+# Server configuration
+# host = '127.0.0.1'
+# port = 23456
+DEVICE = torch.device("cpu")
+class Net(nn.Module):
+    """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz')"""
+
+    def __init__(self) -> None:
+        super(Net, self).__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 16 * 5 * 5)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+
+def get_parameters(net) -> List[np.ndarray]:
+    return [val.cpu().numpy() for _, val in net.state_dict().items()]
+
+def set_parameters(net, parameters: List[np.ndarray]):
+    params_dict = zip(net.state_dict().keys(), parameters)
+    state_dict = OrderedDict({k: torch.Tensor(v) for k, v in params_dict})
+    net.load_state_dict(state_dict, strict=True)
+
 
 from typing import Callable, Union
 
@@ -26,10 +99,6 @@ from flwr.common import (
 from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
-
-# Server configuration
-# host = '127.0.0.1'
-# port = 23456
 
 
 class FedCustom(fl.server.strategy.Strategy):
@@ -95,59 +164,13 @@ class FedCustom(fl.server.strategy.Strategy):
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregate fit results using weighted average."""
 
-        """
-        Client to receive Account data from the smart contract
-        """
-        url = f"http://127.0.0.1:300{node_id}/api/postgetlastmodel"
-
-        response = requests.post(url)
-
-        if response.status_code == 200:
-            latest_id = response.json()
-            print("Latest ID:", latest_id)
-            print("Ok \n")
-        else:
-            print("POST request failed with status code:", response.status_code)    
-
-        response = requests.get("https://gateway.irys.xyz/"+response.content)
-
-        if response.status_code == 200:
-            # Extracting the JSON body from the response
-
-            loaded_data = pickle.loads(response.content)
-            
-        else:
-            print("POST request failed with status code:", response.status_code)
-        
-        loaded_data -> 
-
         weights_results = [
             (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
             for _, fit_res in results
         ]
-        print()
         parameters_aggregated = ndarrays_to_parameters(aggregate(weights_results))
         metrics_aggregated = {}
         return parameters_aggregated, metrics_aggregated
-
-# def ndarray_to_bytes(ndarray: NDArray) -> bytes:
-#     """Serialize NumPy ndarray to bytes."""
-#     bytes_io = BytesIO()
-#     # WARNING: NEVER set allow_pickle to true.
-#     # Reason: loading pickled data can execute arbitrary code
-#     # Source: https://numpy.org/doc/stable/reference/generated/numpy.save.html
-#     np.save(bytes_io, ndarray, allow_pickle=False)
-#     return bytes_io.getvalue()
-
-
-# def bytes_to_ndarray(tensor: bytes) -> NDArray:
-#     """Deserialize NumPy ndarray from bytes."""
-#     bytes_io = BytesIO(tensor)
-#     # WARNING: NEVER set allow_pickle to true.
-#     # Reason: loading pickled data can execute arbitrary code
-#     # Source: https://numpy.org/doc/stable/reference/generated/numpy.load.html
-#     ndarray_deserialized = np.load(bytes_io, allow_pickle=False)
-#     return cast(NDArray, ndarray_deserialized)
 
     def configure_evaluate(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
@@ -207,20 +230,19 @@ class FedCustom(fl.server.strategy.Strategy):
         num_clients = int(num_available_clients * self.fraction_evaluate)
         return max(num_clients, self.min_evaluate_clients), self.min_available_clients
 
+# # Define metric aggregation function
+# def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
+#     # Multiply accuracy of each client by number of examples used
+#     accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
+#     examples = [num_examples for num_examples, _ in metrics]
 
-# Define metric aggregation function
-def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
-    # Multiply accuracy of each client by number of examples used
-    accuracies = [num_examples * m["accuracy"] for num_examples, m in metrics]
-    examples = [num_examples for num_examples, _ in metrics]
-
-    # Aggregate and return custom metric (weighted average)
-    return {"accuracy": sum(accuracies) / sum(examples)}
+#     # Aggregate and return custom metric (weighted average)
+#     return {"accuracy": sum(accuracies) / sum(examples)}
 
 
 # Define strategy
-strategy = fl.server.strategy.FedAvg(evaluate_metrics_aggregation_fn=weighted_average)
-#strategy=FedCustom(evaluate_metrics_aggregation_fn=weighted_average)
+#strategy = fl.server.strategy.FedAvg(evaluate_metrics_aggregation_fn=weighted_average)
+strategy=FedCustom()#evaluate_metrics_aggregation_fn=weighted_average)
 
 # Start Flower server
 fl.server.start_server(
