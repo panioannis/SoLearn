@@ -32,6 +32,12 @@ from flwr.common.serde import (
 )
 
 import numpy as np
+from io import BytesIO
+import random
+import numpy as np
+import requests
+import json
+import pickle
 
 import flwr as fl
 from flwr_datasets import FederatedDataset
@@ -164,11 +170,41 @@ class FedCustom(fl.server.strategy.Strategy):
     ) -> Tuple[Optional[Parameters], Dict[str, Scalar]]:
         """Aggregate fit results using weighted average."""
 
+        #-------------------------------------------------------------------
+        # Start ADDED
+        weights = []
+
+        models  = ['model0.pt','model1.pt']
+
+        weights_loaded = []
+        # Load the pickled object from the file
+        for file_path in models:
+            with open(file_path, 'rb') as file:
+                weights_loaded.append(pickle.load(file))
+        
+        # End ADDED
+        #-------------------------------------------------------------------
+
         weights_results = [
             (parameters_to_ndarrays(fit_res.parameters), fit_res.num_examples)
             for _, fit_res in results
         ]
-        parameters_aggregated = ndarrays_to_parameters(aggregate(weights_results))
+        
+        #-------------------------------------------------------------------
+        # Start ADDED
+
+        updated_weights_results = []
+
+        for loaded_params, (_, fit_res) in zip(weights_loaded, results):
+            updated_weights_results.append((parameters_to_ndarrays(loaded_params), fit_res.num_examples))
+
+        # Now 'updated_weights_results' contains the updated first elements
+        weights_results = updated_weights_results
+
+        # End ADDED
+        #-------------------------------------------------------------------
+
+        parameters_aggregated = ndarrays_to_parameters(aggregate(updated_weights_results))
         metrics_aggregated = {}
         return parameters_aggregated, metrics_aggregated
 

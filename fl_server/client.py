@@ -231,9 +231,19 @@ class FlowerClient(fl.client.Client):
         set_model_parameters(self.net, ndarrays_original)
         train(self.net, self.trainloader, epochs=1)
         
+        # Get model parameters of the updated model.
+        ndarrays_updated = get_model_parameters(self.net)
+        # Serialize ndarray's into a Parameters object
+        parameters_updated = ndarrays_to_parameters(ndarrays_updated)
+
+        #-------------------------------------------------------------------
+        # Start ADDED
+
         bytes_buffer = BytesIO()
-        #torch.save(self.net, "model.pt")
-        torch.save(self.net.state_dict(), bytes_buffer)
+        name = f"model{self.cid}.pt"
+        pickle.dump(parameters_updated, bytes_buffer)
+        #torch.save(self.net.state_dict(), name)
+        #torch.save(self.net.state_dict(), bytes_buffer)
 
         bytes_buffer.seek(0)
 
@@ -252,20 +262,19 @@ class FlowerClient(fl.client.Client):
     
         received_bytes_buffer.seek(0)
         
-        model_state_dict = torch.load(received_bytes_buffer)
+        parameters_updated = pickle.load(received_bytes_buffer)
         
-        #new_model = Net()
-        self.net.load_state_dict(model_state_dict)
+        #self.net.load_state_dict(model_state_dict)
 
         bytes_buffer.close()
         received_bytes_buffer.close()
 
-        #self.net = new_model
+        with open(name, 'wb') as file:
+            pickle.dump(parameters_updated, file)
+        #pickle.dump(parameters_updated,name)
 
-        # Get model parameters of the updated model.
-        ndarrays_updated = get_model_parameters(self.net)
-        # Serialize ndarray's into a Parameters object
-        parameters_updated = ndarrays_to_parameters(ndarrays_updated)
+        # End ADDED
+        #-------------------------------------------------------------------
 
         # Build and return response
         status = Status(code=Code.OK, message="Success")
