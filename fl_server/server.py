@@ -106,6 +106,57 @@ from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 
+def send_weights(weights):
+    url = f"http://127.0.0.1:4000/api/post"
+    serialized_model = pickle.dumps(weights)
+    response = requests.post(url, data=serialized_model, headers={'Content-Type': 'application/octet-stream'})
+
+    # Check if the request was successful (status code 200)
+    if response.status_code == 200:
+        # Extracting the JSON body from the response
+        print("Ok \n")
+        #loaded_data = pickle.loads(response.content)
+    else:
+        print("POST request failed with status code:", response.status_code)
+
+    # response = requests.get("https://gateway.irys.xyz/bI6hUhf9XP6YVXOJdvTdH-sSxfDeTaz9Un_Sjtvylcg")
+
+    # if response.status_code == 200:
+    #     # Extracting the JSON body from the response
+
+    #     loaded_data = pickle.loads(response.content)
+    # else:
+    #     print("POST request failed with status code:", response.status_code)
+    loaded_data = pickle.loads(response.content)
+    return loaded_data
+
+def receive_weights():
+    url2 = "https://gateway.irys.xyz/7lsTAsS8hV97y1ZzZkkFl14ombmHFbOpFq1M30mrPTI"
+    url1 = "https://gateway.irys.xyz/IEekbufkSja4LVhDrwL141MIejJ_ByxOz1nhwCqgtOg"
+    
+    weights = []
+    
+    response = requests.get(url1)
+
+    if response.status_code == 200:
+        # Extracting the JSON body from the response
+
+        loaded_data1 = pickle.loads(response.content)
+    else:
+        print("POST request failed with status code:", response.status_code)
+    
+    response = requests.get(url2)
+
+    if response.status_code == 200:
+        # Extracting the JSON body from the response
+
+        loaded_data2 = pickle.loads(response.content)
+    else:
+        print("POST request failed with status code:", response.status_code)
+
+    weights = [loaded_data1,loaded_data2]
+    return weights
+
 
 class FedCustom(fl.server.strategy.Strategy):
     def __init__(
@@ -172,16 +223,18 @@ class FedCustom(fl.server.strategy.Strategy):
 
         #-------------------------------------------------------------------
         # Start ADDED
-        weights = []
+        # weights = []
 
-        models  = ['model0.pt','model1.pt']
+        # models  = ['model0.pt','model1.pt']
 
-        weights_loaded = []
-        # Load the pickled object from the file
-        for file_path in models:
-            with open(file_path, 'rb') as file:
-                weights_loaded.append(pickle.load(file))
+        # weights_loaded = []
+        # # Load the pickled object from the file
+        # for file_path in models:
+        #     with open(file_path, 'rb') as file:
+        #         weights_loaded.append(pickle.load(file))
         
+        weights_loaded = receive_weights()
+
         # End ADDED
         #-------------------------------------------------------------------
 
@@ -204,7 +257,12 @@ class FedCustom(fl.server.strategy.Strategy):
         # End ADDED
         #-------------------------------------------------------------------
 
-        parameters_aggregated = ndarrays_to_parameters(aggregate(updated_weights_results))
+        to_send = aggregate(updated_weights_results)
+
+        loaded_weights = send_weights(to_send)
+
+        parameters_aggregated = ndarrays_to_parameters(loaded_weights)
+        #parameters_aggregated = ndarrays_to_parameters(to_send)
         metrics_aggregated = {}
         return parameters_aggregated, metrics_aggregated
 

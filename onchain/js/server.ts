@@ -50,8 +50,8 @@ function createKeypairFromFile(path: string): Keypair {
 };
 
 const app = express();
-const args: string[] = process.argv;
-const port: number = parseInt(`300${args[2]}`); 
+//const args: string[] = process.argv;
+const port: number = parseInt(`4000`); 
 
 
 app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
@@ -77,14 +77,13 @@ let nameAccount : string | null;
 
 app.post('/api/post', async (req: Request, res: Response) => {
   try{
-    // req.on('close',async () => {
-    //   console.log('Client disconnected during POST request');
-    //   await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
-    //   await deleteModelRegistry(connection,name,payer,owner);
-    // });
-
     const pickledModel = req.body;
-    
+    // const pickledModel = req.body;
+    // req.on('close',async () => {
+    //     console.log('Client disconnected during POST request');
+    //     await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+    //     await deleteModelRegistry(connection,name,payer,owner);
+    // });
     console.log(pickledModel.length);
     nameAccount = await retrieveModelRegistry(connection, name);
 
@@ -95,10 +94,7 @@ app.post('/api/post', async (req: Request, res: Response) => {
       prevIdTx = await uploadModelUpdate(pickledModel,prevIdTx!,rootIdTx!);
     }
     await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
-
     await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
-    //await deleteModelRegistry(connection,name,payer,owner);
-    
     res.status(200).send(pickledModel);//prevIdTx);
   }catch (error){
     res.status(500).send("An error occurred while processing the request.");
