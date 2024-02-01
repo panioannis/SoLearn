@@ -134,9 +134,25 @@ app.post('/api/postgetlastmodel',async (req: Request, res: Response) => {
   }
 });
 
-app.listen(port, () => {
-  console.log('Server is running at http://localhost:${port}');
+const server = app.listen(port, () => {
+  console.log(`Server is running at http://localhost:${port}`);
 });
   
-  
-  
+  // Handle server exit
+process.on('exit', () => {
+    console.log('Client model provenance uploader');
+    
+});
+
+// Handle server termination signals
+['SIGINT', 'SIGTERM'].forEach(signal => {
+    process.on(signal, async () => {
+        console.log(`Received ${signal}, Client model provenance uploader is shutting down...`);
+        await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+        await deleteModelRegistry(connection,name,payer,owner);
+        server.close(() => {
+            console.log('Client model provenance uploader has been gracefully shutdown');
+            process.exit(0);
+        });
+    });
+});
