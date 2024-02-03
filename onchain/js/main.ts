@@ -29,9 +29,33 @@ import bodyParser from 'body-parser';
 // Dotenv configuration. Please provide .env file with SOL_PRIVATE_KEY = Solana private key here
 // Url is set to Solana Devnet. If changed to mainet use a mainet funded Solana wallet to operate  
 
-dotenv.config();
-const url = "https://api.devnet.solana.com";
 
+dotenv.config();
+const solana_rpc_url = "https://api.devnet.solana.com";
+
+
+async function postData(url: string, data: any): Promise<string | null | undefined> {
+  try {
+      const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/octet-stream', // Assuming JSON data, adjust as needed
+          },
+          body: JSON.stringify(data),
+          //body: Buffer.from(data),
+      });
+
+      if (!response.ok) {
+          throw new Error('Network response was not ok');
+      }
+
+      const responseData = await response.text();
+      console.log('Response:', responseData);
+      return responseData;
+  } catch (error) {
+      console.error('Error:', error);
+  }
+}
 
 // ============================================================================
 // https://docs.irys.xyz/hands-on/tutorials/provenance-chain
@@ -54,20 +78,39 @@ const args: string[] = process.argv;
 const port: number = parseInt(`300${args[2]}`); 
 
 
+// Middleware to parse incoming JSON bodies
+app.use(express.json());
+
+// Middleware to parse incoming raw binary data
 app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
 
-const connection = new Connection(url, 'confirmed');
+//app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
+
+const connection = new Connection(solana_rpc_url, 'confirmed');
 
 const payer = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
 
 const owner = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
-const space = 43;
-let name: string;
+
+let name = "0000000000000000000000000000000000000000000" + '.sol';
 
 //await airdropToPayer(connection,payer);
 checkAndPrintBalance();
 
-name = Math.random().toString() + '.sol';
+const url = 'http://127.0.0.1:4000/api/get_registry_name';
+const postid = { key: parseInt(`${args[2]}`)  }; // Your data to be sent in the POST request
+
+postData(url, postid)
+    .then(responseData => {
+        //console.log('Response:', responseData);
+        name = responseData + '.sol';
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+
+console.log('Name:', name);
+const space = name.length;
 
 createModelRegistry(connection,name,space,payer,owner);
 
@@ -77,12 +120,6 @@ let nameAccount : string | null;
 
 app.post('/api/post', async (req: Request, res: Response) => {
   try{
-    // req.on('close',async () => {
-    //   console.log('Client disconnected during POST request');
-    //   await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
-    //   await deleteModelRegistry(connection,name,payer,owner);
-    // });
-
     const pickledModel = req.body;
     
     console.log(pickledModel.length);
@@ -120,7 +157,7 @@ app.post('/api/postget',async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/postgetlastmodel',async (req: Request, res: Response) => {
+app.post('/api/post_get_latest_model',async (req: Request, res: Response) => {
   //const { body } = req;
   try{
     console.log('Received POST request:', req);
@@ -148,8 +185,12 @@ process.on('exit', () => {
 ['SIGINT', 'SIGTERM'].forEach(signal => {
     process.on(signal, async () => {
         console.log(`Received ${signal}, Client model provenance uploader is shutting down...`);
-        await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+        const res = await retrieveModelRegistry(connection, name);
+        if (res!== null){
+          await getProvenanceModelChainList(res);
+        }
         await deleteModelRegistry(connection,name,payer,owner);
+        
         server.close(() => {
             console.log('Client model provenance uploader has been gracefully shutdown');
             process.exit(0);

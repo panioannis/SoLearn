@@ -192,28 +192,6 @@ class FlowerClient(fl.client.Client):
         # Serialize ndarray's into a Parameters object
         parameters = ndarrays_to_parameters(self.net)
 
-        
-    
-        #new_model = Net()
-        #new_model.load_state_dict(m_state_dict)
-
-        
-
-        # def ndarrays_to_parameters(ndarrays: NDArrays) -> Parameters:
-        # """Convert NumPy ndarrays to parameters object."""
-        # tensors = [ndarray_to_bytes(ndarray) for ndarray in ndarrays]
-        # return Parameters(tensors=tensors, tensor_type="numpy.ndarray")
-
-        # def parameters_to_ndarrays(parameters: Parameters) -> NDArrays:
-        # """Convert parameters object to NumPy ndarrays."""
-        # return [bytes_to_ndarray(tensor) for tensor in parameters.tensors]
-
-        # class Parameters:
-        # """Model parameters."""
-
-        # tensors: List[bytes]
-        # tensor_type: str
-        # Build and return response
         status = Status(code=Code.OK, message="Success")
         return GetParametersRes(
             status=status,
@@ -239,11 +217,12 @@ class FlowerClient(fl.client.Client):
         #-------------------------------------------------------------------
         # Start ADDED
 
-        bytes_buffer = BytesIO()
-        name = f"model{self.cid}.pt"
-        pickle.dump(parameters_updated, bytes_buffer)
+        #name = f"model{self.cid}.pt"
         #torch.save(self.net.state_dict(), name)
         #torch.save(self.net.state_dict(), bytes_buffer)
+
+        bytes_buffer = BytesIO()
+        pickle.dump(parameters_updated, bytes_buffer)
 
         bytes_buffer.seek(0)
 
@@ -269,9 +248,6 @@ class FlowerClient(fl.client.Client):
         bytes_buffer.close()
         received_bytes_buffer.close()
 
-        with open(name, 'wb') as file:
-            pickle.dump(parameters_updated, file)
-        #pickle.dump(parameters_updated,name)
 
         # End ADDED
         #-------------------------------------------------------------------

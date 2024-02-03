@@ -50,30 +50,65 @@ function createKeypairFromFile(path: string): Keypair {
 };
 
 const app = express();
+// Middleware to parse incoming JSON bodies
+app.use(express.json());
+
+// Middleware to parse incoming raw binary data
+app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
+//app.use(express.raw({ limit: '50mb', type: 'application/octet-stream' }));
 //const args: string[] = process.argv;
 const port: number = parseInt(`4000`); 
 
+const args: string[] = process.argv;
 
-app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
+const number_of_clients: number = parseInt(args[2]); 
+
+const randomStrings: string[] = [];
+
+for (let i = 0; i < number_of_clients; i++) {
+    randomStrings.push("SoLearn"+((Math.random()).toString().slice(2)));
+}
+
+console.log(randomStrings);
+
+//let prefix = Math.random().toString() 
 
 const connection = new Connection(url, 'confirmed');
 
 const payer = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
 
 const owner = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
-const space = 43;
-let name: string;
 
-//await airdropToPayer(connection,payer);
 checkAndPrintBalance();
 
-name = Math.random().toString() + '.sol';
-
+//console.log('Name length: %d', name.length);
+const prefix = Math.random().toString(); 
+const name = "SoLearn"+prefix+".sol";
+const space = name.length
 createModelRegistry(connection,name,space,payer,owner);
 
 let rootIdTx : string | null = "0000000000000000000000000000000000000000000"; 
 let prevIdTx : string | null = "0000000000000000000000000000000000000000000";
 let nameAccount : string | null;
+
+
+app.post('/api/get_registry_name', async (req: Request, res: Response) => {
+  try{
+    //const node_id = req.body;
+    
+    const jsonObject = JSON.parse(req.body);
+
+    const node_id = jsonObject['key'];
+
+    const name_to_send = randomStrings[node_id];
+
+    console.log("Node requested " + node_id + " that " + name_to_send);
+    
+    res.status(200).send(name_to_send);
+  }catch (error){
+    res.status(500).send("An error occurred while processing the request.");
+  }
+});
 
 app.post('/api/post', async (req: Request, res: Response) => {
   try{
