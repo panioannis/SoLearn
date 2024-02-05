@@ -33,7 +33,6 @@ import bodyParser from 'body-parser';
 dotenv.config();
 const solana_rpc_url = "https://api.devnet.solana.com";
 
-
 async function postData(url: string, data: any): Promise<string | null | undefined> {
   try {
       const response = await fetch(url, {
@@ -51,21 +50,11 @@ async function postData(url: string, data: any): Promise<string | null | undefin
 
       const responseData = await response.text();
       console.log('Response:', responseData);
-      return responseData;
+      return responseData!;
   } catch (error) {
       console.error('Error:', error);
   }
 }
-
-// ============================================================================
-// https://docs.irys.xyz/hands-on/tutorials/provenance-chain
-// https://docs.irys.xyz/developer-docs/querying/query-package
-// ============================================================================
-
-// ============================================================================
-// https://github.com/adap/flower/blob/main/examples/flower-in-30-minutes/tutorial.ipynb
-// https://flower.dev/docs/framework/tutorial-series-get-started-with-flower-pytorch.html
-// ============================================================================
 
 function createKeypairFromFile(path: string): Keypair {
   return Keypair.fromSecretKey(
@@ -73,116 +62,113 @@ function createKeypairFromFile(path: string): Keypair {
   )
 };
 
-const app = express();
-const args: string[] = process.argv;
-const port: number = parseInt(`300${args[2]}`); 
+async function main(){
+
+  const app = express();
+  const args: string[] = process.argv;
+  const port: number = parseInt(`300${args[2]}`); 
 
 
-// Middleware to parse incoming JSON bodies
-app.use(express.json());
+  // Middleware to parse incoming JSON bodies
+  app.use(express.json());
 
-// Middleware to parse incoming raw binary data
-app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
+  // Middleware to parse incoming raw binary data
+  app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
 
-//app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
+  //app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
 
-const connection = new Connection(solana_rpc_url, 'confirmed');
+  const connection = new Connection(solana_rpc_url, 'confirmed');
 
-const payer = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
+  const payer = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
 
-const owner = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
+  const owner = createKeypairFromFile(require('os').homedir() + '/.config/solana/id.json');
 
-let name = "0000000000000000000000000000000000000000000" + '.sol';
+  //let name = "SoLearn0000000000000000000000000000000000" + '.sol';
 
-//await airdropToPayer(connection,payer);
-checkAndPrintBalance();
+  //await airdropToPayer(connection,payer);
+  checkAndPrintBalance();
 
-const url = 'http://127.0.0.1:4000/api/get_registry_name';
-const postid = { key: parseInt(`${args[2]}`)  }; // Your data to be sent in the POST request
+  //let name: string;
 
-postData(url, postid)
-    .then(responseData => {
-        //console.log('Response:', responseData);
-        name = responseData + '.sol';
-    })
-    .catch(error => {
-        console.error('Error:', error);
-    });
+  const url = 'http://127.0.0.1:7000/api/get_registry_name';
+  const postid = { key: parseInt(`${args[2]}`)  }; // Your data to be sent in the POST request
 
-console.log('Name:', name);
-const space = name.length;
+  let res = await postData(url, postid);
 
-createModelRegistry(connection,name,space,payer,owner);
+  let name = res!;
 
-let rootIdTx : string | null = "0000000000000000000000000000000000000000000"; 
-let prevIdTx : string | null = "0000000000000000000000000000000000000000000";
-let nameAccount : string | null;
+  const space = name.length;
+  createModelRegistry(connection,name,space,payer,owner);
 
-app.post('/api/post', async (req: Request, res: Response) => {
-  try{
-    const pickledModel = req.body;
-    
-    console.log(pickledModel.length);
-    nameAccount = await retrieveModelRegistry(connection, name);
+  let rootIdTx : string | null = "0000000000000000000000000000000000000000000"; 
+  let prevIdTx : string | null = "0000000000000000000000000000000000000000000";
+  let nameAccount : string | null;
 
-    if (nameAccount==="0000000000000000000000000000000000000000000"){
-      rootIdTx = await uploadModelUpdate(pickledModel,nameAccount,nameAccount);
-      prevIdTx = rootIdTx; 
-    } else {
-      prevIdTx = await uploadModelUpdate(pickledModel,prevIdTx!,rootIdTx!);
+  app.post('/api/post', async (req: Request, res: Response) => {
+    try{
+      const pickledModel = req.body;
+      
+      console.log(pickledModel.length);
+      nameAccount = await retrieveModelRegistry(connection, name);
+
+      if (nameAccount==="0000000000000000000000000000000000000000000"){
+        rootIdTx = await uploadModelUpdate(pickledModel,nameAccount,nameAccount);
+        prevIdTx = rootIdTx; 
+      } else {
+        prevIdTx = await uploadModelUpdate(pickledModel,prevIdTx!,rootIdTx!);
+      }
+      await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
+
+      await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+      //await deleteModelRegistry(connection,name,payer,owner);
+      
+      res.status(200).send(pickledModel);//prevIdTx);
+    }catch (error){
+      res.status(500).send("An error occurred while processing the request.");
     }
-    await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
+  });
 
-    await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
-    //await deleteModelRegistry(connection,name,payer,owner);
+
+  app.post('/api/postget',async (req: Request, res: Response) => {
+    //const { body } = req;
+    try{
+      console.log('Received POST request:', req);
+
+      await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+      //await deleteModelRegistry(connection,name,payer,owner);
+
+      res.status(200).send("Success");
+    }catch (error){
+      res.status(500).send("An error occurred while processing the request.");
+    }
+  });
+
+  app.post('/api/post_get_latest_model',async (req: Request, res: Response) => {
+    //const { body } = req;
+    try{
+      console.log('Received POST request:', req);
+
+      const latestid = await retrieveModelRegistry(connection, name);
+      
+      //await deleteModelRegistry(connection,name,payer,owner);
+
+      res.status(200).send(latestid);
+    }catch (error){
+      res.status(500).send("An error occurred while processing the request.");
+    }
+  });
+
+  const server = app.listen(port, () => {
+    console.log(`Server is running at http://localhost:${port}`);
+  });
     
-    res.status(200).send(pickledModel);//prevIdTx);
-  }catch (error){
-    res.status(500).send("An error occurred while processing the request.");
-  }
-});
+    // Handle server exit
+  process.on('exit', () => {
+      console.log('Client model provenance uploader'); 
+  });
+  //Handle server termination signals
 
-
-app.post('/api/postget',async (req: Request, res: Response) => {
-  //const { body } = req;
-  try{
-    console.log('Received POST request:', req);
-
-    await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
-    //await deleteModelRegistry(connection,name,payer,owner);
-
-    res.status(200).send("Success");
-  }catch (error){
-    res.status(500).send("An error occurred while processing the request.");
-  }
-});
-
-app.post('/api/post_get_latest_model',async (req: Request, res: Response) => {
-  //const { body } = req;
-  try{
-    console.log('Received POST request:', req);
-
-    const latestid = await retrieveModelRegistry(connection, name);
-    //await deleteModelRegistry(connection,name,payer,owner);
-
-    res.status(200).send(latestid);
-  }catch (error){
-    res.status(500).send("An error occurred while processing the request.");
-  }
-});
-
-const server = app.listen(port, () => {
-  console.log(`Server is running at http://localhost:${port}`);
-});
-  
-  // Handle server exit
-process.on('exit', () => {
-    console.log('Client model provenance uploader');
-    
-});
-
-// Handle server termination signals
-['SIGINT', 'SIGTERM'].forEach(signal => {
+  ['SIGINT', 'SIGTERM'].forEach(signal => {
     process.on(signal, async () => {
         console.log(`Received ${signal}, Client model provenance uploader is shutting down...`);
         const res = await retrieveModelRegistry(connection, name);
@@ -196,4 +182,9 @@ process.on('exit', () => {
             process.exit(0);
         });
     });
-});
+  });
+
+}
+
+main().catch(console.error);
+

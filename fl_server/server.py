@@ -106,7 +106,7 @@ from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 
-def send_weights(weights):
+def send_model(weights):
     url = f"http://127.0.0.1:4000/api/post"
     serialized_model = pickle.dumps(weights)
     response = requests.post(url, data=serialized_model, headers={'Content-Type': 'application/octet-stream'})
@@ -115,47 +115,42 @@ def send_weights(weights):
     if response.status_code == 200:
         # Extracting the JSON body from the response
         print("Ok \n")
-        #loaded_data = pickle.loads(response.content)
+        loaded_data = pickle.loads(response.content)
     else:
         print("POST request failed with status code:", response.status_code)
 
-    # response = requests.get("https://gateway.irys.xyz/bI6hUhf9XP6YVXOJdvTdH-sSxfDeTaz9Un_Sjtvylcg")
-
-    # if response.status_code == 200:
-    #     # Extracting the JSON body from the response
-
-    #     loaded_data = pickle.loads(response.content)
-    # else:
-    #     print("POST request failed with status code:", response.status_code)
     loaded_data = pickle.loads(response.content)
     return loaded_data
 
-def receive_weights():
-    url2 = "https://gateway.irys.xyz/7lsTAsS8hV97y1ZzZkkFl14ombmHFbOpFq1M30mrPTI"
-    url1 = "https://gateway.irys.xyz/IEekbufkSja4LVhDrwL141MIejJ_ByxOz1nhwCqgtOg"
-    
-    weights = []
-    
-    response = requests.get(url1)
+
+def receive_model(node_id):
+
+    url = f"http://127.0.0.1:300{node_id}/api/post_get_latest_model"
+
+    response = requests.get(url)
 
     if response.status_code == 200:
         # Extracting the JSON body from the response
 
-        loaded_data1 = pickle.loads(response.content)
+        received_data = response.content
     else:
         print("POST request failed with status code:", response.status_code)
-    
-    response = requests.get(url2)
+
+    split_receive = received_data.split(" || ")
+
+    new_url = "https://gateway.irys.xyz/" + split_receive[0]  
+
+    response = requests.get(new_url)
 
     if response.status_code == 200:
         # Extracting the JSON body from the response
 
-        loaded_data2 = pickle.loads(response.content)
+        loaded_model = response.content
     else:
         print("POST request failed with status code:", response.status_code)
 
-    weights = [loaded_data1,loaded_data2]
-    return weights
+    return loaded_model
+
 
 
 class FedCustom(fl.server.strategy.Strategy):
@@ -233,7 +228,14 @@ class FedCustom(fl.server.strategy.Strategy):
         #     with open(file_path, 'rb') as file:
         #         weights_loaded.append(pickle.load(file))
         
-        weights_loaded = receive_weights()
+        urls = []
+        for i in node_id:
+            urls.append(node_id)
+
+        weights_loaded = []
+
+        for url in urls:
+            weights_loaded.append(receive_weights(url))
 
         # End ADDED
         #-------------------------------------------------------------------
