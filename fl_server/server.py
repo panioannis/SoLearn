@@ -238,43 +238,17 @@ class FedCustom(fl.server.strategy.Strategy):
 
         #-------------------------------------------------------------------
         # Start ADDED
-        # weights = []
 
-        # models  = ['model0.pt','model1.pt']
-
-        # weights_loaded = []
-        # # Load the pickled object from the file
-        # for file_path in models:
-        #     with open(file_path, 'rb') as file:
-        #         weights_loaded.append(pickle.load(file))
+        # ------------------------ Sample Code -----------------------------
+        # weights_loa_1 = pickle.loads(receive_weights(0))
+        # weights_loa_2 = pickle.loads(receive_weights(1))
         
-        # urls = []
-        
-        # for i in range(0,2):
-        #     urls.append(i)
+        # weights_loaded = [weights_loa_1,weights_loa_2]
 
-        # client_1_weights = receive_weights(0)
-        # client_2_weights = receive_weights(1)
+        weights_loaded = []
 
-        # buffer_1 = BytesIO(client_1_weights)
-        # buffer_2 = BytesIO(client_2_weights)
-        
-        # buffer_1.seek(0)
-        # buffer_2.seek(0)
-
-        weights_loa_1 = pickle.loads(receive_weights(0))
-        weights_loa_2 = pickle.loads(receive_weights(1))
-        
-        weights_loaded = [weights_loa_1,weights_loa_2]
-        # weights_loaded = []
-        # buffers = []
-        # for i in range(0,2):
-        #     bytes_buff = BytesIO(receive_weights(i))
-        #     bytes_buff.seek(0)
-        #     buffers.append(bytes_buff)
-        #     weights_loaded.append(pickle.loads(buffers[i]))
-
-
+        for i in range(0,len(results)):
+            weights_loaded.append(receive_weights(i))
 
         # End ADDED
         #-------------------------------------------------------------------
