@@ -47,7 +47,7 @@ async function main() {
   app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
   //app.use(express.raw({ limit: '50mb', type: 'application/octet-stream' }));
   //const args: string[] = process.argv;
-  const port: number = parseInt(`7000`); 
+  const port: number = parseInt(`13000`); 
 
   const args: string[] = process.argv;
 
@@ -168,7 +168,7 @@ async function main() {
   ['SIGINT', 'SIGTERM'].forEach(signal => {
       process.on(signal, async () => {
           console.log(`Received ${signal}, Global model provenance uploader is shutting down...`);
-          await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+          //await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
           await deleteModelRegistry(connection,name,payer,owner);
           server.close(() => {
               console.log('Server has been gracefully shutdown');

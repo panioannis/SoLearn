@@ -90,15 +90,39 @@ async function main(){
 
   //let name: string;
 
-  const url = 'http://127.0.0.1:7000/api/get_registry_name';
+  const url = 'http://127.0.0.1:13000/api/get_registry_name';
   const postid = { key: parseInt(`${args[2]}`)  }; // Your data to be sent in the POST request
 
-  let res = await postData(url, postid);
+  // let res = await postData(url, postid);
 
-  let name = res!;
+  // let name = res!;
+
+  let name: string = "AAAAAAAAAASSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDDDDDD";
+
+  await postData(url, postid).then((result) => {
+    if (result !== null && result !== undefined) {
+        name = result + '.sol';;
+        console.log(name); // Output: This is a new string
+    } else {
+        throw new Error("The result is null or undefined");
+    }
+  }).catch((error) => {
+      console.error(error);
+  });
+
+  console.log(name);
 
   const space = name.length;
-  createModelRegistry(connection,name,space,payer,owner);
+
+
+  await createModelRegistry(connection,name,space,payer,owner);
+
+  //createModelRegistry(connection,"SoLearnDev6121678814825717",space,payer,owner);
+  
+
+  await retrieveModelRegistry(connection, name);
+
+  //await retrieveModelRegistry(connection, "SoLearnDev6121678814825717");
 
   let rootIdTx : string | null = "0000000000000000000000000000000000000000000"; 
   let prevIdTx : string | null = "0000000000000000000000000000000000000000000";
@@ -119,7 +143,7 @@ async function main(){
       }
       await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
 
-      await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+      //await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
       //await deleteModelRegistry(connection,name,payer,owner);
       
       res.status(200).send(pickledModel);//prevIdTx);
@@ -151,7 +175,7 @@ async function main(){
       const latestid = await retrieveModelRegistry(connection, name);
       
       //await deleteModelRegistry(connection,name,payer,owner);
-
+      console.log('Received POST request:', latestid);
       res.status(200).send(latestid);
     }catch (error){
       res.status(500).send("An error occurred while processing the request.");
@@ -172,9 +196,9 @@ async function main(){
     process.on(signal, async () => {
         console.log(`Received ${signal}, Client model provenance uploader is shutting down...`);
         const res = await retrieveModelRegistry(connection, name);
-        if (res!== null){
-          await getProvenanceModelChainList(res);
-        }
+        // if (res!== null){
+        //   await getProvenanceModelChainList(res);
+        // }
         await deleteModelRegistry(connection,name,payer,owner);
         
         server.close(() => {
