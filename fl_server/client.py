@@ -175,6 +175,7 @@ def send_weights(weights):
         print("POST request failed with status code:", response.status_code)
     return loaded_data
 
+
 class FlowerClient(fl.client.Client):
     def __init__(self, cid, net, trainloader, valloader):
         self.cid = cid
@@ -232,21 +233,22 @@ class FlowerClient(fl.client.Client):
         # Check if the request was successful (status code 200)
         if response.status_code == 200:
             # Extracting the JSON body from the response
-            received_bytes_buffer = BytesIO(response.content)
-            print(bytes_buffer.getbuffer().nbytes)
+            # received_bytes_buffer = BytesIO(response.content)
+            # print(bytes_buffer.getbuffer().nbytes)
+            print("Message posted successfully")
         else:
             print("POST request failed with status code:", response.status_code)
 
-        bytes_buffer.seek(0)
+        # bytes_buffer.seek(0)
     
-        received_bytes_buffer.seek(0)
+        # received_bytes_buffer.seek(0)
         
-        parameters_updated = pickle.load(received_bytes_buffer)
+        # parameters_updated = pickle.load(received_bytes_buffer)
         
-        #self.net.load_state_dict(model_state_dict)
+        # #self.net.load_state_dict(model_state_dict)
 
-        bytes_buffer.close()
-        received_bytes_buffer.close()
+        # bytes_buffer.close()
+        # received_bytes_buffer.close()
 
 
         # End ADDED

@@ -47,7 +47,7 @@ async function main() {
   app.use(bodyParser.raw({ limit: '50mb', type: 'application/octet-stream' }));
   //app.use(express.raw({ limit: '50mb', type: 'application/octet-stream' }));
   //const args: string[] = process.argv;
-  const port: number = parseInt(`13000`); 
+  const port: number = parseInt(`5000`); 
 
   const args: string[] = process.argv;
 

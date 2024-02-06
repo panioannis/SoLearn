@@ -90,19 +90,19 @@ async function main(){
 
   //let name: string;
 
-  const url = 'http://127.0.0.1:13000/api/get_registry_name';
+  const url = 'http://127.0.0.1:5000/api/get_registry_name';
   const postid = { key: parseInt(`${args[2]}`)  }; // Your data to be sent in the POST request
 
   // let res = await postData(url, postid);
 
   // let name = res!;
 
-  let name: string = "AAAAAAAAAASSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDDDDDD";
+  let res_name: string = "AAAAAAAAAASSSSSSSSSSSSSSSSSSSSSDDDDDDDDDDDDDDDD";
 
   await postData(url, postid).then((result) => {
     if (result !== null && result !== undefined) {
-        name = result + '.sol';;
-        console.log(name); // Output: This is a new string
+        res_name = result + '.sol';
+        console.log(res_name); // Output: This is a new string
     } else {
         throw new Error("The result is null or undefined");
     }
@@ -110,17 +110,25 @@ async function main(){
       console.error(error);
   });
 
+  const name = `${res_name}`;
+
   console.log(name);
 
-  const space = name.length;
+  const space = 43;
 
 
   await createModelRegistry(connection,name,space,payer,owner);
 
+  const irys_null = "0000000000000000000000000000000000000000000";
+
+  // const irys_nill = "yBIpKXy5jg22Ic7UIr679jOujnKu1Is27O2yCfbzxI8";
+
+  await updateModelRegistry(connection,name,payer,owner,irys_null);
+
   //createModelRegistry(connection,"SoLearnDev6121678814825717",space,payer,owner);
   
 
-  await retrieveModelRegistry(connection, name);
+  console.log(await retrieveModelRegistry(connection, name))
 
   //await retrieveModelRegistry(connection, "SoLearnDev6121678814825717");
 
@@ -134,19 +142,26 @@ async function main(){
       
       console.log(pickledModel.length);
       nameAccount = await retrieveModelRegistry(connection, name);
-
+      console.log("Retrived last account");
       if (nameAccount==="0000000000000000000000000000000000000000000"){
         rootIdTx = await uploadModelUpdate(pickledModel,nameAccount,nameAccount);
         prevIdTx = rootIdTx; 
       } else {
         prevIdTx = await uploadModelUpdate(pickledModel,prevIdTx!,rootIdTx!);
       }
-      await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
+      console.log("Time to update the Model Registry");
+      //const prev_id = `${prevIdTx}`;
+      console.log("Name: ", name );
+      console.log("Prev ID: ", prevIdTx!.length );
+      
+      await updateModelRegistry(connection,name,payer,owner,prevIdTx!);
+
+      console.log("OK!")
 
       //await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
       //await deleteModelRegistry(connection,name,payer,owner);
       
-      res.status(200).send(pickledModel);//prevIdTx);
+      res.status(200).send(pickledModel);
     }catch (error){
       res.status(500).send("An error occurred while processing the request.");
     }
@@ -170,7 +185,7 @@ async function main(){
   app.post('/api/post_get_latest_model',async (req: Request, res: Response) => {
     //const { body } = req;
     try{
-      console.log('Received POST request:', req);
+     // console.log('Received POST request:', req);
 
       const latestid = await retrieveModelRegistry(connection, name);
       

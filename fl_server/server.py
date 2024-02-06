@@ -107,7 +107,7 @@ from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 
 def send_model(weights):
-    url = f"http://127.0.0.1:4000/api/post"
+    url = f"http://127.0.0.1:5000/api/post"
     serialized_model = pickle.dumps(weights)
     response = requests.post(url, data=serialized_model, headers={'Content-Type': 'application/octet-stream'})
 
@@ -123,20 +123,38 @@ def send_model(weights):
     return loaded_data
 
 
-def receive_model(node_id):
-
+def receive_weights(node_id):
     url = f"http://127.0.0.1:300{node_id}/api/post_get_latest_model"
 
-    response = requests.get(url)
+    response = requests.post(url)
 
     if response.status_code == 200:
         # Extracting the JSON body from the response
 
-        received_data = response.content
+        received_data = response.text
     else:
         print("POST request failed with status code:", response.status_code)
 
+    print(received_data)
+
+    node_url = "https://gateway.irys.xyz/" + received_data
+
+    # received_data = f"https://gateway.irys.xyz/C4PJqg6fB0jRU6THcpx7VtIbWpbRpIe0RoqMrqUE738"
+
+    response = requests.get(node_url)
+
+    if response.status_code == 200:
+        # Extracting the JSON body from the response
+
+        received_data = response.text
+    else:
+        print("POST request failed with status code:", response.status_code)
+
+    print(received_data)
+
     split_receive = received_data.split(" || ")
+
+    print(split_receive[0])
 
     new_url = "https://gateway.irys.xyz/" + split_receive[0]  
 
@@ -149,7 +167,8 @@ def receive_model(node_id):
     else:
         print("POST request failed with status code:", response.status_code)
 
-    return loaded_model
+    # print(loaded_model)
+    return loaded_model  
 
 
 
@@ -228,14 +247,18 @@ class FedCustom(fl.server.strategy.Strategy):
         #     with open(file_path, 'rb') as file:
         #         weights_loaded.append(pickle.load(file))
         
-        urls = []
-        for i in node_id:
-            urls.append(node_id)
+        # urls = []
+        
+        # for i in range(0,2):
+        #     urls.append(i)
 
         weights_loaded = []
-
-        for url in urls:
-            weights_loaded.append(receive_weights(url))
+        buffers = []
+        for i in range(0,2):
+            bytes_buff = BytesIO(receive_weights(i))
+            bytes_buff.seek(0)
+            buffers.append(bytes_buff)
+            weights_loaded.append(pickle.loads(buffers[i]))
 
         # End ADDED
         #-------------------------------------------------------------------
@@ -343,6 +366,6 @@ strategy=FedCustom()#evaluate_metrics_aggregation_fn=weighted_average)
 # Start Flower server
 fl.server.start_server(
     server_address="127.0.0.1:5321",
-    config=fl.server.ServerConfig(num_rounds=10),
+    config=fl.server.ServerConfig(num_rounds=2),
     strategy=strategy,
 )
