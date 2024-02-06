@@ -23,18 +23,18 @@ parser.add_argument(
 
 node_id = parser.parse_args().node_id
 
-# url = f"http://127.0.0.1:3001/api/post_get_latest_model"
+url = f"http://127.0.0.1:3001/api/post_get_latest_model"
 
-# response = requests.post(url)
+response = requests.post(url)
 
-# if response.status_code == 200:
-#     # Extracting the JSON body from the response
+if response.status_code == 200:
+    # Extracting the JSON body from the response
 
-#     received_data = response.text
-# else:
-#     print("POST request failed with status code:", response.status_code)
+    received_data = response.text
+else:
+    print("POST request failed with status code:", response.status_code)
 
-# print(received_data)
+print(received_data)
 
 received_data = f"https://gateway.irys.xyz/C4PJqg6fB0jRU6THcpx7VtIbWpbRpIe0RoqMrqUE738"
 

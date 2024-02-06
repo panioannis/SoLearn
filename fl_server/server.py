@@ -116,10 +116,11 @@ def send_model(weights):
         # Extracting the JSON body from the response
         print("Ok \n")
         loaded_data = pickle.loads(response.content)
+        print(loaded_data)
     else:
         print("POST request failed with status code:", response.status_code)
 
-    loaded_data = pickle.loads(response.content)
+    #loaded_data = pickle.loads(response.content)
     return loaded_data
 
 
@@ -167,7 +168,7 @@ def receive_weights(node_id):
     else:
         print("POST request failed with status code:", response.status_code)
 
-    # print(loaded_model)
+    #print(loaded_model)
     return loaded_model  
 
 
@@ -252,13 +253,28 @@ class FedCustom(fl.server.strategy.Strategy):
         # for i in range(0,2):
         #     urls.append(i)
 
-        weights_loaded = []
-        buffers = []
-        for i in range(0,2):
-            bytes_buff = BytesIO(receive_weights(i))
-            bytes_buff.seek(0)
-            buffers.append(bytes_buff)
-            weights_loaded.append(pickle.loads(buffers[i]))
+        # client_1_weights = receive_weights(0)
+        # client_2_weights = receive_weights(1)
+
+        # buffer_1 = BytesIO(client_1_weights)
+        # buffer_2 = BytesIO(client_2_weights)
+        
+        # buffer_1.seek(0)
+        # buffer_2.seek(0)
+
+        weights_loa_1 = pickle.loads(receive_weights(0))
+        weights_loa_2 = pickle.loads(receive_weights(1))
+        
+        weights_loaded = [weights_loa_1,weights_loa_2]
+        # weights_loaded = []
+        # buffers = []
+        # for i in range(0,2):
+        #     bytes_buff = BytesIO(receive_weights(i))
+        #     bytes_buff.seek(0)
+        #     buffers.append(bytes_buff)
+        #     weights_loaded.append(pickle.loads(buffers[i]))
+
+
 
         # End ADDED
         #-------------------------------------------------------------------
@@ -284,7 +300,8 @@ class FedCustom(fl.server.strategy.Strategy):
 
         to_send = aggregate(updated_weights_results)
 
-        loaded_weights = send_weights(to_send)
+        loaded_weights = send_model(to_send)
+        #send_model(to_send)
 
         parameters_aggregated = ndarrays_to_parameters(loaded_weights)
         #parameters_aggregated = ndarrays_to_parameters(to_send)

@@ -74,7 +74,7 @@ async function main() {
   //console.log('Name length: %d', name.length);
   const prefix = Math.random().toString(); 
   const name = "SoLearnDev"+prefix+".sol";
-  const space = name.length
+  const space = 43;
   createModelRegistry(connection,name,space,payer,owner);
 
   let rootIdTx : string | null = "0000000000000000000000000000000000000000000"; 
@@ -119,7 +119,7 @@ async function main() {
         prevIdTx = await uploadModelUpdate(pickledModel,prevIdTx!,rootIdTx!);
       }
       await updateModelRegistry(connection,name,payer,owner,prevIdTx!);  
-      await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
+      //await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
       res.status(200).send(pickledModel);//prevIdTx);
     }catch (error){
       res.status(500).send("An error occurred while processing the request.");
