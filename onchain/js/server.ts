@@ -73,9 +73,20 @@ async function main() {
 
   //console.log('Name length: %d', name.length);
   const prefix = Math.random().toString(); 
-  const name = "SoLearnDev"+prefix+".sol";
+  const name = "SoLearnDev"+prefix;
+  console.log(name);
   const space = 43;
-  createModelRegistry(connection,name,space,payer,owner);
+  await createModelRegistry(connection,name,space,payer,owner);
+
+  const irys_null = "0000000000000000000000000000000000000000000";
+
+  // const irys_nill = "yBIpKXy5jg22Ic7UIr679jOujnKu1Is27O2yCfbzxI8";
+
+  await updateModelRegistry(connection,name,payer,owner,irys_null);
+
+  //createModelRegistry(connection,"SoLearnDev6121678814825717",space,payer,owner);
+  
+  console.log(await retrieveModelRegistry(connection, name))
 
   let rootIdTx : string | null = "0000000000000000000000000000000000000000000"; 
   let prevIdTx : string | null = "0000000000000000000000000000000000000000000";
@@ -141,14 +152,15 @@ async function main() {
     }
   });
 
-  app.post('/api/postgetlastmodel',async (req: Request, res: Response) => {
+  app.post('/api/post_get_latest_model',async (req: Request, res: Response) => {
     //const { body } = req;
     try{
-      console.log('Received POST request:', req);
+     // console.log('Received POST request:', req);
 
       const latestid = await retrieveModelRegistry(connection, name);
+      
       //await deleteModelRegistry(connection,name,payer,owner);
-
+      console.log('Received POST request:', latestid);
       res.status(200).send(latestid);
     }catch (error){
       res.status(500).send("An error occurred while processing the request.");

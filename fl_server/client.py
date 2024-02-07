@@ -164,17 +164,54 @@ def send_weights(weights):
         #loaded_data = pickle.loads(response.content)
     else:
         print("POST request failed with status code:", response.status_code)
+    return 
 
-    response = requests.get("https://gateway.irys.xyz/bI6hUhf9XP6YVXOJdvTdH-sSxfDeTaz9Un_Sjtvylcg")
+def receive_weights():
+    url = f"http://127.0.0.1:5000/api/post_get_latest_model"
+
+    response = requests.post(url)
 
     if response.status_code == 200:
         # Extracting the JSON body from the response
 
-        loaded_data = pickle.loads(response.content)
+        received_data = response.text
     else:
         print("POST request failed with status code:", response.status_code)
-    return loaded_data
 
+    print(received_data)
+
+    node_url = "https://gateway.irys.xyz/" + received_data
+
+    # received_data = f"https://gateway.irys.xyz/C4PJqg6fB0jRU6THcpx7VtIbWpbRpIe0RoqMrqUE738"
+
+    response = requests.get(node_url)
+
+    if response.status_code == 200:
+        # Extracting the JSON body from the response
+
+        received_data = response.text
+    else:
+        print("POST request failed with status code:", response.status_code)
+
+    print(received_data)
+
+    split_receive = received_data.split(" || ")
+
+    print(split_receive[0])
+
+    new_url = "https://gateway.irys.xyz/" + split_receive[0]  
+
+    response = requests.get(new_url)
+
+    if response.status_code == 200:
+        # Extracting the JSON body from the response
+
+        loaded_model = response.content
+    else:
+        print("POST request failed with status code:", response.status_code)
+
+    #print(loaded_model)
+    return loaded_model 
 
 class FlowerClient(fl.client.Client):
     def __init__(self, cid, net, trainloader, valloader):
@@ -187,11 +224,11 @@ class FlowerClient(fl.client.Client):
         print(f"[Client {self.cid}] get_parameters")
 
         # Get parameters as a list of NumPy ndarray's
-
+        print("I am running from inside get parameters\n")
         ndarrays: List[np.ndarray] = get_model_parameters(self.net)
 
         # Serialize ndarray's into a Parameters object
-        parameters = ndarrays_to_parameters(self.net)
+        parameters = ndarrays_to_parameters(ndarrays)
 
         status = Status(code=Code.OK, message="Success")
         return GetParametersRes(
@@ -203,7 +240,11 @@ class FlowerClient(fl.client.Client):
         print(f"[Client {self.cid}] fit, config: {ins.config}")
 
         # Deserialize parameters to NumPy ndarray's
-        parameters_original = ins.parameters
+        #parameters_original = ins.parameters
+        #ndarrays_original = parameters_to_ndarrays(parameters_original)
+
+        received_weights = receive_weights()
+        parameters_original = pickle.loads(received_weights)
         ndarrays_original = parameters_to_ndarrays(parameters_original)
 
         # Update local model, train, get updated parameters

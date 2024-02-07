@@ -116,7 +116,7 @@ def send_model(weights):
         # Extracting the JSON body from the response
         print("Ok \n")
         loaded_data = pickle.loads(response.content)
-        print(loaded_data)
+        #print(loaded_data)
     else:
         print("POST request failed with status code:", response.status_code)
 
@@ -139,8 +139,6 @@ def receive_weights(node_id):
     print(received_data)
 
     node_url = "https://gateway.irys.xyz/" + received_data
-
-    # received_data = f"https://gateway.irys.xyz/C4PJqg6fB0jRU6THcpx7VtIbWpbRpIe0RoqMrqUE738"
 
     response = requests.get(node_url)
 
@@ -168,7 +166,8 @@ def receive_weights(node_id):
     else:
         print("POST request failed with status code:", response.status_code)
 
-    #print(loaded_model)
+    print(loaded_model)    
+
     return loaded_model  
 
 
@@ -198,7 +197,9 @@ class FedCustom(fl.server.strategy.Strategy):
         """Initialize global model parameters."""
         net = Net()
         ndarrays = get_parameters(net)
-        return fl.common.ndarrays_to_parameters(ndarrays)
+        weights = ndarrays_to_parameters(ndarrays)
+        send_model(weights)
+        return weights 
 
     def configure_fit(
         self, server_round: int, parameters: Parameters, client_manager: ClientManager
@@ -247,8 +248,8 @@ class FedCustom(fl.server.strategy.Strategy):
 
         weights_loaded = []
 
-        for i in range(0,len(results)):
-            weights_loaded.append(receive_weights(i))
+        for i in range(0,2):
+            weights_loaded.append(pickle.loads(receive_weights(i)))
 
         # End ADDED
         #-------------------------------------------------------------------
@@ -272,12 +273,11 @@ class FedCustom(fl.server.strategy.Strategy):
         # End ADDED
         #-------------------------------------------------------------------
 
-        to_send = aggregate(updated_weights_results)
-
-        loaded_weights = send_model(to_send)
-        #send_model(to_send)
+        loaded_weights = aggregate(updated_weights_results)
 
         parameters_aggregated = ndarrays_to_parameters(loaded_weights)
+
+        send_model(parameters_aggregated)
         #parameters_aggregated = ndarrays_to_parameters(to_send)
         metrics_aggregated = {}
         return parameters_aggregated, metrics_aggregated
@@ -357,6 +357,6 @@ strategy=FedCustom()#evaluate_metrics_aggregation_fn=weighted_average)
 # Start Flower server
 fl.server.start_server(
     server_address="127.0.0.1:5321",
-    config=fl.server.ServerConfig(num_rounds=2),
+    config=fl.server.ServerConfig(num_rounds=10),
     strategy=strategy,
 )

@@ -3,3 +3,6 @@ dataset
 custon_strategy.py
 Flower_4_Client_and_NumPyClient_PyTorch.ipynb
 numpy_client.py
+code.py
+receive_latest_model.py
+__pycache__
