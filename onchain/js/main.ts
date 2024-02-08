@@ -149,14 +149,13 @@ async function main(){
       } else {
         prevIdTx = await uploadModelUpdate(pickledModel,prevIdTx!,rootIdTx!);
       }
-      console.log("Time to update the Model Registry");
-      //const prev_id = `${prevIdTx}`;
-      console.log("Name: ", name );
-      console.log("Prev ID: ", prevIdTx!.length );
+      //console.log("Time to update the Model Registry");
+      //console.log("Name: ", name );
+      //console.log("Prev ID: ", prevIdTx!.length );
       
       await updateModelRegistry(connection,name,payer,owner,prevIdTx!);
 
-      console.log("OK!")
+      //console.log("OK!")
 
       //await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
       //await deleteModelRegistry(connection,name,payer,owner);

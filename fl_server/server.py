@@ -39,6 +39,8 @@ import requests
 import json
 import pickle
 
+import argparse
+
 import flwr as fl
 from flwr_datasets import FederatedDataset
 import torch
@@ -106,6 +108,17 @@ from flwr.server.client_manager import ClientManager
 from flwr.server.client_proxy import ClientProxy
 from flwr.server.strategy.aggregate import aggregate, weighted_loss_avg
 
+# Get node id
+parser = argparse.ArgumentParser(description="Flower")
+parser.add_argument(
+    "--rounds",
+    required=True,
+    type=int,
+    help="Number of rounds participating nodes in the System.",
+)
+
+rounds = parser.parse_args().rounds                                                      
+
 def send_model(weights):
     url = f"http://127.0.0.1:5000/api/post"
     serialized_model = pickle.dumps(weights)
@@ -114,7 +127,7 @@ def send_model(weights):
     # Check if the request was successful (status code 200)
     if response.status_code == 200:
         # Extracting the JSON body from the response
-        print("Ok \n")
+        #print("Ok \n")
         loaded_data = pickle.loads(response.content)
         #print(loaded_data)
     else:
@@ -166,10 +179,9 @@ def receive_weights(node_id):
     else:
         print("POST request failed with status code:", response.status_code)
 
-    print(loaded_model)    
+    #print(loaded_model)    
 
     return loaded_model  
-
 
 
 class FedCustom(fl.server.strategy.Strategy):
@@ -241,14 +253,10 @@ class FedCustom(fl.server.strategy.Strategy):
         # Start ADDED
 
         # ------------------------ Sample Code -----------------------------
-        # weights_loa_1 = pickle.loads(receive_weights(0))
-        # weights_loa_2 = pickle.loads(receive_weights(1))
-        
-        # weights_loaded = [weights_loa_1,weights_loa_2]
 
         weights_loaded = []
 
-        for i in range(0,2):
+        for i in range(0,len(results)):
             weights_loaded.append(pickle.loads(receive_weights(i)))
 
         # End ADDED
@@ -277,8 +285,16 @@ class FedCustom(fl.server.strategy.Strategy):
 
         parameters_aggregated = ndarrays_to_parameters(loaded_weights)
 
+        #-------------------------------------------------------------------
+        # Start ADDED
+
         send_model(parameters_aggregated)
-        #parameters_aggregated = ndarrays_to_parameters(to_send)
+
+        # End ADDED
+        #-------------------------------------------------------------------
+
+
+
         metrics_aggregated = {}
         return parameters_aggregated, metrics_aggregated
 
@@ -357,6 +373,6 @@ strategy=FedCustom()#evaluate_metrics_aggregation_fn=weighted_average)
 # Start Flower server
 fl.server.start_server(
     server_address="127.0.0.1:5321",
-    config=fl.server.ServerConfig(num_rounds=10),
+    config=fl.server.ServerConfig(num_rounds=rounds),
     strategy=strategy,
 )

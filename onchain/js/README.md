@@ -12,15 +12,16 @@ This package provides an interface that third parties can
 utilize to create and use their own version of a name service of any kind.
 
 
-// ======================================================================================
-// https://docs.irys.xyz/hands-on/tutorials/provenance-chain
-// https://docs.irys.xyz/developer-docs/querying/query-package
-// ======================================================================================
 
-// ======================================================================================
-// https://github.com/adap/flower/blob/main/examples/flower-in-30-minutes/tutorial.ipynb
-// https://flower.dev/docs/framework/tutorial-series-get-started-with-flower-pytorch.html
-// ======================================================================================
+https://docs.irys.xyz/hands-on/tutorials/provenance-chain
+
+https://docs.irys.xyz/developer-docs/querying/query-package
+
+
+https://github.com/adap/flower/blob/main/examples/flower-in-30-minutes/tutorial.ipynb
+
+https://flower.dev/docs/framework/tutorial-series-get-started-with-flower-pytorch.html
+
 
 
 ## Installation

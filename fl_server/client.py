@@ -160,7 +160,8 @@ def send_weights(weights):
     # Check if the request was successful (status code 200)
     if response.status_code == 200:
         # Extracting the JSON body from the response
-        print("Ok \n")
+        #print("Ok \n")
+        return
         #loaded_data = pickle.loads(response.content)
     else:
         print("POST request failed with status code:", response.status_code)
@@ -276,10 +277,10 @@ class FlowerClient(fl.client.Client):
             # Extracting the JSON body from the response
             # received_bytes_buffer = BytesIO(response.content)
             # print(bytes_buffer.getbuffer().nbytes)
-            print("Message posted successfully")
+            status = Status(code=Code.OK, message="Success")
         else:
             print("POST request failed with status code:", response.status_code)
-
+            status = Status(code=Code.OK, message="Success")
         # bytes_buffer.seek(0)
     
         # received_bytes_buffer.seek(0)
@@ -296,7 +297,7 @@ class FlowerClient(fl.client.Client):
         #-------------------------------------------------------------------
 
         # Build and return response
-        status = Status(code=Code.OK, message="Success")
+        #status = Status(code=Code.OK, message="Success")
         return FitRes(
             status=status,
             parameters=parameters_updated,
