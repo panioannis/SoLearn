@@ -209,16 +209,13 @@ async function main(){
   ['SIGINT', 'SIGTERM'].forEach(signal => {
     process.on(signal, async () => {
         console.log(`Received ${signal}, Client model provenance uploader is shutting down...`);
-        const res = await retrieveModelRegistry(connection, name);
+        //const res = await retrieveModelRegistry(connection, name);
         // if (res!== null){
         //   await getProvenanceModelChainList(res);
         // }
         await deleteModelRegistry(connection,name,payer,owner);
-        
-        server.close(() => {
-            console.log('Client model provenance uploader has been gracefully shutdown');
-            process.exit(0);
-        });
+        console.log('Client model provenance uploader has been gracefully shutdown');
+        process.exit(0);
     });
   });
 
