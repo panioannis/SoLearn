@@ -8,7 +8,7 @@ mkdir -p ./experiments
 for clients in {10..100..10}; do
     # Inner loop for rounds from 10 to 1000
     for rounds in {100..1000..100}; do
-        for i in {1..10} do
+        for i in {1..12} do
             # Start time
             start=$(date +%s.%N)
             # Run the command with current clients and rounds
