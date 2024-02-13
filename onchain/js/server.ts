@@ -72,7 +72,7 @@ async function main() {
   checkAndPrintBalance();
 
   //console.log('Name length: %d', name.length);
-  const prefix = Math.random().toString(); 
+  const prefix = ((Math.random()).toString().slice(2)); 
   const name = "SoLearnDev"+prefix;
   console.log(name);
   const space = 43;
@@ -95,17 +95,14 @@ async function main() {
 
   app.post('/api/get_registry_name', async (req: Request, res: Response) => {
     try{
-      //const node_id = req.body;
+      console.log((req.body)['key']);
+
+      const name_to_send = randomStrings[parseInt((req.body)['key'])];
+
+      console.log("Node requested " + " that " + name_to_send);
       
-      const jsonObject = JSON.parse(req.body);
+      res.status(200).send(name_to_send);  
 
-      const node_id = jsonObject['key'];
-
-      const name_to_send = randomStrings[node_id];
-
-      console.log("Node requested " + node_id + " that " + name_to_send);
-      
-      res.status(200).send(name_to_send);
     }catch (error){
       res.status(500).send("An error occurred while processing the request.");
     }
@@ -114,12 +111,6 @@ async function main() {
   app.post('/api/post', async (req: Request, res: Response) => {
     try{
       const pickledModel = req.body;
-      // const pickledModel = req.body;
-      // req.on('close',async () => {
-      //     console.log('Client disconnected during POST request');
-      //     await getProvenanceModelChainList(await retrieveModelRegistry(connection, name));
-      //     await deleteModelRegistry(connection,name,payer,owner);
-      // });
       console.log(pickledModel.length);
       nameAccount = await retrieveModelRegistry(connection, name);
 
