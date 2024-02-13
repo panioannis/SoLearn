@@ -51,8 +51,6 @@ from flwr.common.serde import (
 host = '127.0.0.1'
 port = 12345
 
-# https://github.com/adap/flower/blob/main/doc/source/tutorial-series-use-a-federated-learning-strategy-pytorch.ipynb
-
 # #############################################################################
 # 1. Regular PyTorch pipeline: nn.Module, train, test, and DataLoader
 # #############################################################################
@@ -60,6 +58,25 @@ port = 12345
 warnings.filterwarnings("ignore", category=UserWarning)
 #DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 DEVICE = torch.device("cpu")
+
+# Get node id
+parser = argparse.ArgumentParser(description="Flower")
+parser.add_argument(
+    "--node-id",
+    choices=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    required=True,
+    type=int,
+    help="Partition of the dataset divided into 10 iid partitions created artificially.",
+)
+parser.add_argument(
+    "--clients",
+    required=True,
+    type=int,
+    help="Total number of clients",
+)
+
+node_id = parser.parse_args().node_id
+clients = parser.parse_args().clients
 
 class Net(nn.Module):
     """Model (simple CNN adapted from 'PyTorch: A 60 Minute Blitz')"""
@@ -118,7 +135,7 @@ def test(net, testloader):
 
 def load_data(node_id):
     """Load partition CIFAR10 data."""
-    fds = FederatedDataset(dataset="cifar10", partitioners={"train": 3})
+    fds = FederatedDataset(dataset="cifar10", partitioners={"train": clients})
     partition = fds.load_partition(node_id)
     # Divide data on each node: 80% train, 20% test
     partition_train_test = partition.train_test_split(test_size=0.2)
@@ -140,41 +157,22 @@ def load_data(node_id):
 # 2. Federation of the pipeline with Flower
 # #############################################################################
 
-# Get node id
-parser = argparse.ArgumentParser(description="Flower")
-parser.add_argument(
-    "--node-id",
-    choices=[0, 1, 2],
-    required=True,
-    type=int,
-    help="Partition of the dataset divided into 3 iid partitions created artificially.",
-)
-
-node_id = parser.parse_args().node_id
-
 def send_weights(weights):
     url = f"http://127.0.0.1:300{node_id}/api/post"
     serialized_model = pickle.dumps(weights)
     response = requests.post(url, data=serialized_model, headers={'Content-Type': 'application/octet-stream'})
 
     # Check if the request was successful (status code 200)
-    if response.status_code == 200:
-        # Extracting the JSON body from the response
-        #print("Ok \n")
-        return
-        #loaded_data = pickle.loads(response.content)
-    else:
+    if response.status_code != 200:
         print("POST request failed with status code:", response.status_code)
     return 
 
 def receive_weights():
-    url = f"http://127.0.0.1:5000/api/post_get_latest_model"
+    url = f"http://127.0.0.1:13256/api/post_get_latest_model"
 
     response = requests.post(url)
 
     if response.status_code == 200:
-        # Extracting the JSON body from the response
-
         received_data = response.text
     else:
         print("POST request failed with status code:", response.status_code)
@@ -183,13 +181,9 @@ def receive_weights():
 
     node_url = "https://gateway.irys.xyz/" + received_data
 
-    # received_data = f"https://gateway.irys.xyz/C4PJqg6fB0jRU6THcpx7VtIbWpbRpIe0RoqMrqUE738"
-
     response = requests.get(node_url)
 
     if response.status_code == 200:
-        # Extracting the JSON body from the response
-
         received_data = response.text
     else:
         print("POST request failed with status code:", response.status_code)
@@ -205,13 +199,9 @@ def receive_weights():
     response = requests.get(new_url)
 
     if response.status_code == 200:
-        # Extracting the JSON body from the response
-
         loaded_model = response.content
     else:
         print("POST request failed with status code:", response.status_code)
-
-    #print(loaded_model)
     return loaded_model 
 
 class FlowerClient(fl.client.Client):
@@ -241,8 +231,6 @@ class FlowerClient(fl.client.Client):
         print(f"[Client {self.cid}] fit, config: {ins.config}")
 
         # Deserialize parameters to NumPy ndarray's
-        #parameters_original = ins.parameters
-        #ndarrays_original = parameters_to_ndarrays(parameters_original)
 
         received_weights = receive_weights()
         parameters_original = pickle.loads(received_weights)
@@ -260,10 +248,6 @@ class FlowerClient(fl.client.Client):
         #-------------------------------------------------------------------
         # Start ADDED
 
-        #name = f"model{self.cid}.pt"
-        #torch.save(self.net.state_dict(), name)
-        #torch.save(self.net.state_dict(), bytes_buffer)
-
         bytes_buffer = BytesIO()
         pickle.dump(parameters_updated, bytes_buffer)
 
@@ -274,24 +258,10 @@ class FlowerClient(fl.client.Client):
 
         # Check if the request was successful (status code 200)
         if response.status_code == 200:
-            # Extracting the JSON body from the response
-            # received_bytes_buffer = BytesIO(response.content)
-            # print(bytes_buffer.getbuffer().nbytes)
             status = Status(code=Code.OK, message="Success")
         else:
             print("POST request failed with status code:", response.status_code)
             status = Status(code=Code.OK, message="Success")
-        # bytes_buffer.seek(0)
-    
-        # received_bytes_buffer.seek(0)
-        
-        # parameters_updated = pickle.load(received_bytes_buffer)
-        
-        # #self.net.load_state_dict(model_state_dict)
-
-        # bytes_buffer.close()
-        # received_bytes_buffer.close()
-
 
         # End ADDED
         #-------------------------------------------------------------------
