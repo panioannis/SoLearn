@@ -31,7 +31,7 @@ sleep 2
 cd ./fl_server/ || exit
 # ------------------------------ Execute client.py for each client ----------------------
 for ((i = 0; i < N; i++)); do
-    python client.py --node-id $i &
+    python client.py --node-id $i --clients $N &
 done
 python server.py --rounds $R --clients $N
 # ------------------------------ Wait for 2 seconds (to lower) --------------------------
