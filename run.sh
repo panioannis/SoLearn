@@ -33,7 +33,7 @@ cd ./fl_server/ || exit
 for ((i = 0; i < N; i++)); do
     python client.py --node-id $i &
 done
-python server.py --rounds $R  
+python server.py --rounds $R --clients $N
 # ------------------------------ Wait for 2 seconds (to lower) --------------------------
 sleep 2
 # ------------------------------ Reduce pid by one for everyone -------------------------
@@ -58,4 +58,3 @@ kill -SIGINT "${client_pids[@]}"
 for (( i = 0; i < ${#client_pids[@]}; i++ )); do
     wait ${client_pids[i]}
 done
-
