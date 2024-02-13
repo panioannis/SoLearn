@@ -19,8 +19,11 @@ sleep 3
 # ------------------------------ Store the client pids ----------------------------------
 client_pids=()
 # ------------------------------ Execute main.ts for each client ------------------------
+
+mkdir -p "../../experiments/Experiment_${N}_clients_${R}_rounds/"
+
 for ((i = 0; i < N; i++)); do
-    ts-node main.ts $i | tee Client_model"$i".out &
+    ts-node main.ts $i | tee ../../experiments/Experiment_${N}_clients_${R}_rounds/Client_model_${i}.out &
     client_pids[$i]=$!
 done
 cd ../../
